@@ -121,6 +121,54 @@ class AnswerEvaluationRequest(BaseModel):
     locale: str = Field(default="zh-CN", min_length=2, max_length=20)
 
 
+class TranscriptEvaluationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str | None = None
+    job_title: str | None = Field(default=None, max_length=200)
+    question_prompt: str = Field(..., min_length=8, max_length=500)
+    answer_text: str = Field(..., min_length=1, max_length=20000)
+    locale: str = Field(default="zh-CN", min_length=2, max_length=20)
+
+
+class TranscriptEvaluation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    relevance_score: float = Field(..., ge=0, le=1)
+    clarity_score: float = Field(..., ge=0, le=1)
+    fluency_score: float = Field(..., ge=0, le=1)
+    structure_score: float = Field(..., ge=0, le=1)
+    summary: str = Field(..., min_length=4, max_length=800)
+    strengths: list[str] = Field(..., min_length=1, max_length=8)
+    improvements: list[str] = Field(..., min_length=1, max_length=8)
+    evidence: list[str] = Field(default_factory=list, max_length=10)
+    limitations: list[str] = Field(default_factory=list, max_length=6)
+
+
+class ReferenceComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str | None = None
+    job_title: str | None = Field(default=None, max_length=200)
+    question: GeneratedQuestion
+    answer_text: str = Field(..., min_length=1, max_length=20000)
+    locale: str = Field(default="zh-CN", min_length=2, max_length=20)
+
+
+class ReferenceComparison(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    alignment_score: float = Field(..., ge=0, le=1)
+    correctness_score: float = Field(..., ge=0, le=1)
+    covered_key_points: list[str] = Field(default_factory=list, max_length=8)
+    missing_key_points: list[str] = Field(default_factory=list, max_length=8)
+    comparison_summary: str = Field(..., min_length=4, max_length=800)
+    improved_answer_outline: list[str] = Field(..., min_length=2, max_length=8)
+    improvement_advice: list[str] = Field(..., min_length=1, max_length=8)
+    evidence: list[str] = Field(default_factory=list, max_length=10)
+    limitations: list[str] = Field(default_factory=list, max_length=6)
+
+
 class EvaluationDimension(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -131,13 +179,23 @@ class EvaluationDimension(BaseModel):
     evidence: list[str] = Field(default_factory=list, max_length=6)
 
 
+class DetailedDimension(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(..., min_length=2, max_length=80)
+    title: str = Field(..., min_length=2, max_length=80)
+    score: float | None = Field(default=None, ge=0, le=1)
+    summary: str = Field(..., min_length=2, max_length=600)
+    evidence: list[str] = Field(default_factory=list, max_length=8)
+    suggestions: list[str] = Field(default_factory=list, max_length=6)
+    limitations: list[str] = Field(default_factory=list, max_length=4)
+
+
 class AnswerEvaluation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     overall_score: float = Field(..., ge=0, le=1)
-    content_score: float = Field(..., ge=0, le=1)
-    delivery_score: float = Field(..., ge=0, le=1)
-    dimensions: list[EvaluationDimension] = Field(..., min_length=4, max_length=10)
+    dimension_analysis: list[DetailedDimension] = Field(..., min_length=8, max_length=8)
     strengths: list[str] = Field(..., min_length=1, max_length=8)
     improvements: list[str] = Field(..., min_length=1, max_length=8)
     evidence: list[str] = Field(..., min_length=1, max_length=10)
@@ -153,12 +211,12 @@ class QuestionAnalysisSummary(BaseModel):
     answer_id: str = Field(..., min_length=1, max_length=100)
     question: str = Field(..., min_length=8, max_length=500)
     overall_score: float | None = Field(default=None, ge=0, le=1)
-    content_score: float | None = Field(default=None, ge=0, le=1)
-    delivery_score: float | None = Field(default=None, ge=0, le=1)
+    dimension_scores: dict[str, float | None] = Field(default_factory=dict)
     strengths: list[str] = Field(default_factory=list, max_length=8)
     improvements: list[str] = Field(default_factory=list, max_length=8)
     evidence: list[str] = Field(default_factory=list, max_length=10)
     limitations: list[str] = Field(default_factory=list, max_length=6)
+    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=8)
 
 
 class InterviewReportGenerationRequest(BaseModel):
@@ -179,7 +237,7 @@ class InterviewReportDraft(BaseModel):
     summary: str = Field(..., min_length=8, max_length=1000)
     strengths: list[str] = Field(..., min_length=1, max_length=8)
     priority_improvements: list[str] = Field(..., min_length=1, max_length=8)
-    cross_question_patterns: list[str] = Field(default_factory=list, max_length=8)
     practice_plan: list[str] = Field(..., min_length=1, max_length=8)
+    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=8)
     limitations: list[str] = Field(default_factory=list, max_length=8)
     disclaimer: str = "这些结果是训练建议，不是心理、医学或招聘结论。"
