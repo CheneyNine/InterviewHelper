@@ -45,6 +45,17 @@ def test_question_generation_request_accepts_stage_and_inputs():
     assert value.interview_stage == "业务面"
 
 
+def test_question_generation_request_accepts_one_question_for_debugging():
+    value = QuestionGenerationRequest(
+        job_title="算法工程师",
+        job_description="负责推荐系统策略和在线服务，持续优化业务指标。",
+        job_requirements="熟悉机器学习、数据结构和 Python，有推荐系统经验。",
+        interview_stage="技术面",
+        question_count=1,
+    )
+    assert value.question_count == 1
+
+
 def test_generated_question_requires_reference_answer_and_rubric():
     question = GeneratedQuestion.model_validate(
         {

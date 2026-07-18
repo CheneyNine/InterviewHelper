@@ -110,14 +110,14 @@ def build_evaluation_messages(request: "AnswerEvaluationRequest", repair_note: s
 10. 输出语言使用 {request.locale} 对应的语言；中文输入输出简体中文。
 
 建议使用这些维度及权重：
-- relevance 0.15
-- structure_and_logic 0.15
-- technical_or_factual_accuracy 0.20
-- evidence_and_personal_contribution 0.20
+- relevance 0.12
+- structure_and_logic 0.12
+- technical_or_factual_accuracy 0.18
+- evidence_and_personal_contribution 0.18
 - result_and_role_fit 0.10
-- delivery_clarity 0.08
-- delivery_structure 0.07
-- pacing_and_conciseness 0.05
+- delivery_clarity 0.12
+- delivery_structure 0.10
+- pacing_and_conciseness 0.08
 
 不要输出内部推理过程，只输出结论、依据和建议。"""
     payload = {

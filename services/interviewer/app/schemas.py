@@ -17,7 +17,7 @@ class QuestionGenerationRequest(BaseModel):
     # Keep this open-ended so the UI can add variants such as “复试-技术面”
     # without requiring a backend deployment. Prompt guidance falls back to 初试.
     interview_stage: str = Field(default="初试", min_length=2, max_length=40)
-    question_count: int = Field(default=5, ge=3, le=10)
+    question_count: int = Field(default=5, ge=1, le=10)
     locale: str = Field(default="zh-CN", min_length=2, max_length=20)
 
     @field_validator("job_title", "job_description", "job_requirements")
@@ -83,7 +83,7 @@ class RubricCriterion(BaseModel):
 class GeneratedQuestionSet(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    questions: list[GeneratedQuestion] = Field(..., min_length=3, max_length=10)
+    questions: list[GeneratedQuestion] = Field(..., min_length=1, max_length=10)
     model: str
     prompt_version: str
 
