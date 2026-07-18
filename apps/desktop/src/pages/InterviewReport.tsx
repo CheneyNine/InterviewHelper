@@ -64,7 +64,7 @@ export function InterviewReportPage() {
         <div className="report-list priorities"><h2><Flag size={19} />优先训练</h2>{activeReport.priority_improvements.map((item, index) => <p key={item}><span>{index + 1}</span>{item}</p>)}</div>
       </section>
 
-      {activeReport.dimension_scores && <section className="report-band report-dimensions"><div className="report-list"><h2>四维度总览</h2>{Object.entries(dimensionLabels).map(([key, label]) => { const value = activeReport.dimension_scores?.[key]; return <p key={key}><span>{label}</span><strong>{value == null ? "—" : `${Math.round(value * 100)}分`}</strong></p>; })}</div></section>}
+      {activeReport.dimension_scores && <section className="report-band report-dimensions"><div className="report-list"><h2>八维度总览</h2>{Object.entries(dimensionLabels).map(([key, label]) => { const value = activeReport.dimension_scores?.[key]; return <p key={key}><span>{label}</span><strong>{value == null ? "—" : `${Math.round(value * 100)}分`}</strong></p>; })}</div></section>}
 
       <section className="answer-review">
         <div className="section-title"><div><span>逐题回顾</span><h2>点击题目查看对应分析</h2></div><strong>{activeReport.answer_analyses.length}/{questions.length} 已分析</strong></div>
