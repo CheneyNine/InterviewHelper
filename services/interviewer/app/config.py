@@ -4,6 +4,7 @@ import os
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 try:
     from dotenv import load_dotenv
@@ -36,7 +37,10 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         if load_dotenv:
-            load_dotenv()
+            project_root = Path(__file__).resolve().parents[3]
+            service_root = Path(__file__).resolve().parents[1]
+            load_dotenv(project_root / ".env")
+            load_dotenv(service_root / ".env", override=True)
         configured_urls = [
             os.getenv("URL1", "").strip(),
             os.getenv("URL2", "").strip(),
