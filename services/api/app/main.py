@@ -437,6 +437,7 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
 def create_app(settings: Settings | None = None) -> FastAPI:
     active_settings = settings or Settings.from_env()
     app = FastAPI(title="InterviewHelper Core API", version="1.1.0")
+    report_generation_locks: dict[str, asyncio.Lock] = {}
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -853,38 +854,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "aggregate_scores": result["aggregate_scores"],
             "locale": interview["locale"],
         }
-        draft = await interviewer_post(
-            active_settings,
-            "/internal/v1/interview-reports:generate",
-            report_request,
-            str(uuid.uuid4()),
-        )
-        answer_analyses = [
-            {
-                "question_id": item["question_id"],
-                "answer_id": item["answer_id"],
-                "analysis_url": f"/api/v1/answers/{item['answer_id']}/analysis",
+        report_lock = report_generation_locks.setdefault(interview_id, asyncio.Lock())
+        async with report_lock:
+            # Another request may have generated the report while this one waited.
+            cached = get_saved_report(interview_id, active_settings.database_path)
+            if cached is not None:
+                return cached
+            draft = await interviewer_post(
+                active_settings,
+                "/internal/v1/interview-reports:generate",
+                report_request,
+                str(uuid.uuid4()),
+            )
+            answer_analyses = [
+                {
+                    "question_id": item["question_id"],
+                    "answer_id": item["answer_id"],
+                    "analysis_url": f"/api/v1/answers/{item['answer_id']}/analysis",
+                }
+                for item in result["question_analyses"]
+            ]
+            report = {
+                "interview_id": interview_id,
+                "question_count": len(questions),
+                "completed_count": len(result["question_analyses"]),
+                **draft,
+                "dimension_scores": {
+                    key.removeprefix("dimension_"): value
+                    for key, value in result["aggregate_scores"].items()
+                    if key.startswith("dimension_")
+                },
+                "overall_score": result["aggregate_scores"]["overall_score"],
+                "top_strengths": draft.get("strengths", []),
+                "answer_analyses": answer_analyses,
+                "question_analyses": answer_analyses,
             }
-            for item in result["question_analyses"]
-        ]
-        report = {
-            "interview_id": interview_id,
-            "question_count": len(questions),
-            "completed_count": len(result["question_analyses"]),
-            **draft,
-            "dimension_scores": {
-                key.removeprefix("dimension_"): value
-                for key, value in result["aggregate_scores"].items()
-                if key.startswith("dimension_")
-            },
-            "overall_score": result["aggregate_scores"]["overall_score"],
-            "top_strengths": draft.get("strengths", []),
-            "answer_analyses": answer_analyses,
-            "question_analyses": answer_analyses,
-        }
-        save_report(interview_id, report, active_settings.database_path)
-        update_interview_status(interview_id, "COMPLETED", active_settings.database_path)
-        return report
+            save_report(interview_id, report, active_settings.database_path)
+            update_interview_status(interview_id, "COMPLETED", active_settings.database_path)
+            return report
 
     return app
 
