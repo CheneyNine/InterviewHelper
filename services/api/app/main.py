@@ -14,6 +14,7 @@ from typing import Any, Optional
 import httpx
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -628,10 +629,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return {"interviews": items}
 
-    @app.delete("/api/v1/interviews/{interview_id}", status_code=204)
-    async def delete_interview_endpoint(interview_id: str) -> None:
+    @app.delete("/api/v1/interviews/{interview_id}", status_code=204, response_class=Response)
+    async def delete_interview_endpoint(interview_id: str) -> Response:
         if not delete_interview_record(interview_id, active_settings.database_path):
             raise HTTPException(status_code=404, detail={"code": "INTERVIEW_NOT_FOUND"})
+        return Response(status_code=204)
 
     @app.get("/api/v1/jobs/{job_id}")
     async def get_job_endpoint(job_id: str) -> dict[str, Any]:
