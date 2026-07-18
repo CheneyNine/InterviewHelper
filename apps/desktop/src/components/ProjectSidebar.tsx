@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock3, LoaderCircle, MessageSquareText, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getInterview, getInterviewReport, listInterviews } from "../lib/api";
+import { ApiError, getInterview, getInterviewReport, listInterviews } from "../lib/api";
 import { useInterviewStore } from "../store/interviewStore";
 import type { InterviewProjectSummary } from "../types";
 import "../styles/workspace.css";
@@ -35,12 +35,15 @@ export function ProjectSidebar() {
       .then((items) => {
         setProjects(items);
         setSyncError(false);
+        if (activeInterviewId && !items.some((item) => item.id === activeInterviewId)) {
+          newProject();
+        }
       })
       .catch(() => setSyncError(true));
-  }, [setProjects]);
+  }, [activeInterviewId, newProject, setProjects]);
 
   const openProject = async (project: InterviewProjectSummary) => {
-    if (loadingId || project.id === activeInterviewId) return;
+    if (loadingId) return;
     setLoadingId(project.id);
     try {
       const result = await getInterview(project.id);
@@ -49,8 +52,13 @@ export function ProjectSidebar() {
         const report = await getInterviewReport(project.id);
         showReport(report);
       }
-    } catch {
+    } catch (error) {
       setSyncError(true);
+      if (error instanceof ApiError && error.code === "INTERVIEW_NOT_FOUND") {
+        const items = await listInterviews().catch(() => []);
+        setProjects(items);
+        if (project.id === activeInterviewId) newProject();
+      }
     } finally {
       setLoadingId(null);
     }
@@ -72,7 +80,7 @@ export function ProjectSidebar() {
             <span className="project-item-title">{project.job_title}</span>
             <span className="project-item-meta">
               <i><ProjectStatusIcon status={project.status} />{statusLabels[project.status]}</i>
-              <i>{project.answered_count}/{project.question_count} 题</i>
+              <i>{Math.min(project.answered_count, project.question_count)}/{project.question_count} 题</i>
             </span>
             {loadingId === project.id && <LoaderCircle className="project-loading spin-icon" size={15} />}
           </button>

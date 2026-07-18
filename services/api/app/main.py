@@ -479,6 +479,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return
         if not active_settings.vlm_base_url:
             update_answer_status(answer_id, "FAILED", active_settings.database_path)
+            update_interview_status(
+                answer["interview_id"], "FAILED", active_settings.database_path
+            )
             update_job(
                 job_id, "FAILED", 1.0, active_settings.database_path,
                 error={"code": "VLM_NOT_CONFIGURED", "message": "VLM_BASE_URL is not configured."},
@@ -501,6 +504,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except Exception as exc:
             update_answer_status(answer_id, "FAILED", active_settings.database_path)
+            update_interview_status(
+                answer["interview_id"], "FAILED", active_settings.database_path
+            )
             update_job(
                 job_id, "FAILED", 1.0, active_settings.database_path,
                 error={"code": "MEDIA_ANALYSIS_FAILED", "message": str(exc)[:500]},
@@ -615,6 +621,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         items = []
         for interview in list_interview_records(active_settings.database_path):
             answers = list_answers(interview["id"], active_settings.database_path)
+            answered_question_ids = {
+                answer["question_id"]
+                for answer in answers
+                if answer["status"] != "FAILED"
+            }
             items.append(
                 {
                     "id": interview["id"],
@@ -622,7 +633,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "interview_stage": interview["interview_stage"],
                     "status": interview["status"],
                     "question_count": interview["question_count"],
-                    "answered_count": len(answers),
+                    "answered_count": len(answered_question_ids),
                     "created_at": interview["created_at"],
                     "updated_at": interview["updated_at"],
                 }
