@@ -11,6 +11,7 @@ QuestionType = Literal["behavioral", "technical", "situational"]
 class QuestionGenerationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    request_id: str | None = Field(default=None, min_length=1, max_length=100)
     job_title: str = Field(..., min_length=1, max_length=200)
     job_description: str = Field(..., min_length=20, max_length=12000)
     job_requirements: str = Field(..., min_length=10, max_length=12000)
