@@ -10,7 +10,8 @@ import type {
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
-export const usingStub = import.meta.env.VITE_USE_STUB !== "false";
+// Stub mode is opt-in so local integration uses the Core API by default.
+export const usingStub = import.meta.env.VITE_USE_STUB === "true";
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const id = () => crypto.randomUUID();
