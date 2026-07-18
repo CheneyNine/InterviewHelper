@@ -371,6 +371,42 @@ DIMENSION_WEIGHTS = {
     "role_fit": 0.10,
 }
 
+DIMENSION_TITLES = {
+    "visible_expression": "神情与镜头表现",
+    "content_and_fluency": "回答内容与流畅程度",
+    "tone_and_voice": "语气与声音表现",
+    "answer_structure": "回答结构与题目呈现",
+    "relevance": "题目相关性",
+    "technical_depth": "专业准确性与技术深度",
+    "evidence_and_contribution": "证据与个人贡献",
+    "role_fit": "岗位匹配度与业务理解",
+}
+
+
+def unavailable_evaluation(reason: str) -> dict[str, Any]:
+    """Preserve grounded Omni results when the secondary evaluator is unavailable."""
+    limitation = f"结构化内容评分暂不可用：{reason[:300]}"
+    return {
+        "overall_score": None,
+        "dimension_analysis": [
+            {
+                "key": key,
+                "title": DIMENSION_TITLES[key],
+                "score": None,
+                "summary": "当前没有可靠的结构化内容评分。",
+                "evidence": [],
+                "suggestions": [],
+                "limitations": [limitation],
+            }
+            for key in DIMENSION_WEIGHTS
+        ],
+        "strengths": [],
+        "improvements": [],
+        "evidence": [],
+        "limitations": [limitation],
+        "disclaimer": "这是基于题目、回答文本和可观察表现的训练反馈，不是心理、医学或招聘结论。",
+    }
+
 
 def dimension_scores(evaluation: dict[str, Any]) -> dict[str, float | None]:
     scores = {key: None for key in DIMENSION_WEIGHTS}
@@ -468,19 +504,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             for key, value in question.items()
             if key not in {"id", "interview_id"}
         }
-        evaluation = await interviewer_post(
-            active_settings,
-            "/internal/v1/content-evaluations",
-            {
-                "request_id": request_id,
-                "job_title": interview["job_title"],
-                "job_description": interview["job_description"],
-                "question": question_payload,
-                "multimodal_report": multimodal,
-                "locale": interview["locale"],
-            },
-            request_id,
-        )
+        evaluation_error: Exception | None = None
+        try:
+            evaluation = await interviewer_post(
+                active_settings,
+                "/internal/v1/content-evaluations",
+                {
+                    "request_id": request_id,
+                    "job_title": interview["job_title"],
+                    "job_description": interview["job_description"],
+                    "question": question_payload,
+                    "multimodal_report": multimodal,
+                    "locale": interview["locale"],
+                },
+                request_id,
+            )
+        except Exception as exc:
+            evaluation_error = exc
+            evaluation = unavailable_evaluation(str(exc))
         transcript_request = {
             "request_id": request_id,
             "job_title": interview["job_title"],
@@ -511,7 +552,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "analysis_limitations": [
                 str(item) for item in (transcript_evaluation, reference_comparison)
                 if isinstance(item, Exception)
-            ],
+            ] + ([str(evaluation_error)] if evaluation_error is not None else []),
         }
         save_analysis(answer_id, analysis, active_settings.database_path)
         update_answer_status(answer_id, "COMPLETED", active_settings.database_path)

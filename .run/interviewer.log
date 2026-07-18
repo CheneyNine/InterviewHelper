@@ -1,0 +1,12 @@
+INFO:     Started server process [60320]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64526 - "POST /internal/v1/content-evaluations HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:64798 - "POST /internal/v1/transcript-evaluations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64799 - "POST /internal/v1/reference-comparisons HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65014 - "POST /internal/v1/interview-reports%3Agenerate HTTP/1.1" 502 Bad Gateway
+INFO:     127.0.0.1:65117 - "POST /internal/v1/interview-reports%3Agenerate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65233 - "POST /internal/v1/interview-reports%3Agenerate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65252 - "POST /internal/v1/interview-reports%3Agenerate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65345 - "POST /internal/v1/interview-reports%3Agenerate HTTP/1.1" 200 OK

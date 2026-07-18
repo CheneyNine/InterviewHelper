@@ -22,6 +22,7 @@ from app.main import (
     create_app,
     parse_qwen_video_response,
     qwen_chat_completions_url,
+    unavailable_evaluation,
 )
 from app.task_queue import PersistentAnalysisQueue, detect_idle_gpu_ids
 
@@ -81,6 +82,17 @@ def test_explicit_gpu_pool_uses_at_most_four_devices():
     assert detect_idle_gpu_ids("0") == ["0"]
     assert detect_idle_gpu_ids("0,1,2,3") == ["0", "1", "2", "3"]
     assert detect_idle_gpu_ids("0,1,2,3,4") == ["0", "1", "2", "3"]
+
+
+def test_unavailable_evaluation_preserves_report_without_inventing_scores():
+    evaluation = unavailable_evaluation("upstream schema mismatch")
+
+    assert evaluation["overall_score"] is None
+    assert len(evaluation["dimension_analysis"]) == 8
+    assert all(item["score"] is None for item in evaluation["dimension_analysis"])
+    assert evaluation["strengths"] == []
+    assert evaluation["evidence"] == []
+    assert "upstream schema mismatch" in evaluation["limitations"][0]
 
 
 def test_queue_recovers_persisted_analysis_job_with_single_gpu(tmp_path):
