@@ -127,7 +127,13 @@ class OpenAICompatibleClient:
             raise ModelClientError("MODEL_RATE_LIMITED", "Model endpoint rate limited the API key", status_code=429)
         if response.status_code >= 400:
             if json_mode and style == "openai" and response.status_code in (400, 404, 422):
-                return await self._request_once(messages, base_url=base_url, json_mode=False)
+                return await self._request_once(
+                    messages,
+                    base_url=base_url,
+                    api_key=api_key,
+                    model=model,
+                    json_mode=False,
+                )
             raise ModelClientError("MODEL_REQUEST_REJECTED", "Model endpoint rejected the request", status_code=response.status_code)
         try:
             payload = response.json()
@@ -172,7 +178,7 @@ class OpenAICompatibleClient:
                 await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _request_ecnu(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
-        """Try ECNU keys in order and rotate immediately after HTTP 429."""
+        """Try ECNU keys in order and rotate for key-specific or transient failures."""
         errors: list[ModelClientError] = []
         for index, api_key in enumerate(self.settings.ecnu_api_keys, start=1):
             try:
@@ -185,12 +191,17 @@ class OpenAICompatibleClient:
                 )
             except ModelClientError as exc:
                 errors.append(exc)
-                if exc.code != "MODEL_RATE_LIMITED":
+                if exc.code not in {
+                    "MODEL_RATE_LIMITED",
+                    "MODEL_REQUEST_REJECTED",
+                    "DEPENDENCY_UNAVAILABLE",
+                    "MODEL_TIMEOUT",
+                }:
                     raise
         raise ModelClientError(
-            "MODEL_RATE_LIMITED",
-            f"All ECNU API keys are rate limited ({len(errors)} keys tried)",
-            status_code=429,
+            errors[-1].code if errors else "DEPENDENCY_UNAVAILABLE",
+            f"All ECNU API keys failed ({len(errors)} keys tried)",
+            status_code=errors[-1].status_code if errors else None,
         )
 
     async def _delayed_request(

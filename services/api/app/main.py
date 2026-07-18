@@ -8,7 +8,12 @@ from typing import Any
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 
 def now() -> str:
@@ -45,8 +50,24 @@ class Store:
 
 
 app = FastAPI(title="InterviewHelper Core API", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        item.strip()
+        for item in os.getenv(
+            "CORS_ORIGINS",
+            "http://127.0.0.1:1420,http://localhost:1420",
+        ).split(",")
+        if item.strip()
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 INTERVIEWER_BASE_URL = os.getenv("INTERVIEWER_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 VLM_BASE_URL = os.getenv("VLM_BASE_URL", "").rstrip("/")
+VLM_API_KEY = os.getenv("VLM_API_KEY", "").strip()
+VLM_TIMEOUT_SECONDS = float(os.getenv("VLM_TIMEOUT_SECONDS", "900"))
 MEDIA_DIR = Path(os.getenv("MEDIA_DIR", "/tmp/interviewhelper-media"))
 
 
@@ -94,6 +115,45 @@ async def vlm_post(path: str, payload: dict[str, Any], request_id: str) -> dict[
     return response.json()
 
 
+async def vlm_upload_recording(
+    answer: dict[str, Any],
+    question: dict[str, Any],
+    request_id: str,
+) -> dict[str, Any]:
+    """Upload the actual media bytes because the VLM runs on another host."""
+    headers = {"X-Request-ID": request_id}
+    if VLM_API_KEY:
+        headers["Authorization"] = f"Bearer {VLM_API_KEY}"
+    media_path = Path(answer["media_path"])
+    with media_path.open("rb") as media_file:
+        files = {
+            "video": (
+                media_path.name,
+                media_file,
+                answer["media_content_type"],
+            )
+        }
+        data = {
+            "duration_ms": str(answer["duration_ms"]),
+            "mode": "recording",
+            "session_id": answer["interview_id"],
+            "locale": "zh-CN",
+            "question": question.get("prompt", ""),
+        }
+        async with httpx.AsyncClient(timeout=VLM_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{VLM_BASE_URL}/recording-analyses",
+                headers=headers,
+                files=files,
+                data=data,
+            )
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"VLM returned HTTP {response.status_code}: {response.text[:500]}"
+        )
+    return response.json()
+
+
 def report_to_multimodal(report: dict[str, Any]) -> dict[str, Any]:
     analysis = report.get("analysis", report)
     transcript = analysis.get("transcript", {})
@@ -121,15 +181,25 @@ def report_to_multimodal(report: dict[str, Any]) -> dict[str, Any]:
         *video.get("unavailable_reasons", []),
         *delivery.get("unavailable_reasons", []),
     ]
+    raw_metrics = {
+        **delivery.get("metrics", {}),
+        "sampled_frame_count": video.get("sampled_frame_count"),
+        "face_visible_ratio": video.get("face_visible_ratio"),
+    }
+    metrics = {
+        key: value
+        for key, value in raw_metrics.items()
+        if value is None or isinstance(value, (str, int, float))
+    }
     return {
-        "answer_text": transcript.get("text", ""),
+        "answer_text": transcript.get("text") or "（未识别到清晰语音）",
         "facial_behavior_description": visible.get("summary"),
         "body_language_description": "；".join(
             item.get("message", str(item)) if isinstance(item, dict) else str(item)
             for item in video.get("observations", [])
         ) if video.get("observations") else None,
         "voice_delivery_description": tone.get("summary") or delivery.get("summary"),
-        "metrics": {**delivery.get("metrics", {}), **video},
+        "metrics": metrics,
         "observations": observations,
         "limitations": [str(item) for item in limitations if item],
     }
@@ -189,6 +259,56 @@ async def get_interview(interview_id: str) -> dict[str, Any]:
     return {"interview": interview, "questions": interview.get("questions", []), "answers": answers}
 
 
+@app.get("/api/v1/interviews")
+async def list_interviews() -> dict[str, Any]:
+    items = []
+    for interview in Store.interviews.values():
+        answered_count = sum(
+            item["interview_id"] == interview["id"]
+            for item in Store.answers.values()
+        )
+        items.append(
+            {
+                "id": interview["id"],
+                "job_title": interview["job_title"],
+                "interview_stage": interview["interview_stage"],
+                "status": interview["status"],
+                "question_count": interview["question_count"],
+                "answered_count": answered_count,
+                "created_at": interview["created_at"],
+                "updated_at": interview.get("updated_at", interview["created_at"]),
+            }
+        )
+    items.sort(key=lambda item: item["updated_at"], reverse=True)
+    return {"interviews": items}
+
+
+@app.delete("/api/v1/interviews/{interview_id}", status_code=204)
+async def delete_interview(interview_id: str) -> None:
+    interview = Store.interviews.pop(interview_id, None)
+    if not interview:
+        raise HTTPException(status_code=404, detail={"code": "INTERVIEW_NOT_FOUND"})
+    question_ids = {
+        key for key, item in Store.questions.items() if item["interview_id"] == interview_id
+    }
+    answer_ids = {
+        key for key, item in Store.answers.items() if item["interview_id"] == interview_id
+    }
+    for answer_id in answer_ids:
+        answer = Store.answers.pop(answer_id)
+        Path(answer["media_path"]).unlink(missing_ok=True)
+        Store.analyses.pop(answer_id, None)
+    for question_id in question_ids:
+        Store.questions.pop(question_id, None)
+    for job_id in [
+        key
+        for key, item in Store.jobs.items()
+        if item["resource_id"] == interview_id or item["resource_id"] in answer_ids
+    ]:
+        Store.jobs.pop(job_id, None)
+    Store.reports.pop(interview_id, None)
+
+
 @app.get("/api/v1/jobs/{job_id}")
 async def get_job(job_id: str) -> dict[str, Any]:
     job = Store.jobs.get(job_id)
@@ -227,9 +347,10 @@ async def run_media_analysis(answer_id: str, job_id: str) -> None:
         update_job(job_id, status="FAILED", progress=1.0, error={"code": "VLM_NOT_CONFIGURED", "message": "VLM_BASE_URL is not configured"})
         return
     try:
-        report = await vlm_post(
-            "/internal/v1/media-analyses",
-            {"request_id": str(uuid.uuid4()), "answer_id": answer_id, "media_uri": answer["media_path"], "media_content_type": answer["media_content_type"], "duration_ms": answer["duration_ms"], "locale": "zh-CN"},
+        question = Store.questions[answer["question_id"]]
+        report = await vlm_upload_recording(
+            answer,
+            question,
             str(uuid.uuid4()),
         )
         await complete_answer_analysis(answer_id, report)
@@ -297,7 +418,44 @@ async def get_answer_analysis(answer_id: str) -> dict[str, Any]:
     analysis = Store.analyses.get(answer_id)
     if not analysis:
         raise HTTPException(status_code=409, detail={"code": "ANALYSIS_NOT_READY"})
-    return analysis
+    raw_report = analysis["raw_multimodal_report"]
+    raw = raw_report.get("analysis", raw_report)
+    evaluation = analysis["evaluation"]
+    dimensions = {
+        item["dimension"]: item.get("score")
+        for item in evaluation.get("dimensions", [])
+        if isinstance(item, dict) and item.get("dimension")
+    }
+    evidence = [
+        {"claim": item, "quote": item}
+        for item in evaluation.get("evidence", [])
+        if isinstance(item, str)
+    ]
+    return {
+        "answer_id": answer_id,
+        "transcript": raw.get(
+            "transcript", {"text": "", "language": "zh-CN", "segments": []}
+        ),
+        "content": {
+            "overall_score": evaluation.get("overall_score"),
+            "dimensions": dimensions,
+            "strengths": evaluation.get("strengths", []),
+            "improvements": evaluation.get("improvements", []),
+            "evidence": evidence,
+        },
+        "delivery": raw.get(
+            "delivery",
+            {
+                "metrics": {},
+                "observations": [],
+                "suggestions": [],
+                "unavailable_reasons": [],
+            },
+        ),
+        "video": raw.get("video", {}),
+        "observable_state": raw.get("observable_state", {}),
+        "raw_multimodal_report": raw_report,
+    }
 
 
 @app.get("/api/v1/interviews/{interview_id}/report")
@@ -305,11 +463,31 @@ async def get_report(interview_id: str) -> dict[str, Any]:
     interview = Store.interviews.get(interview_id)
     if not interview:
         raise HTTPException(status_code=404, detail={"code": "INTERVIEW_NOT_FOUND"})
+    if interview_id in Store.reports:
+        return Store.reports[interview_id]
     result = aggregate(interview_id)
     if len(result["question_analyses"]) < len(interview.get("questions", [])):
         raise HTTPException(status_code=409, detail={"code": "REPORT_NOT_READY"})
     report_request = {"interview_id": interview_id, "job_title": interview["job_title"], "interview_stage": interview["interview_stage"], "question_analyses": result["question_analyses"], "aggregate_scores": result["aggregate_scores"], "locale": interview["locale"]}
     draft = await interviewer_post("/internal/v1/interview-reports:generate", report_request, str(uuid.uuid4()))
-    report = {"interview_id": interview_id, "question_count": len(interview.get("questions", [])), "completed_count": len(result["question_analyses"]), **result["aggregate_scores"], **draft, "question_analyses": [{"question_id": item["question_id"], "answer_id": item["answer_id"], "analysis_url": f"/api/v1/answers/{item['answer_id']}/analysis"} for item in result["question_analyses"]]}
+    answer_analyses = [
+        {
+            "question_id": item["question_id"],
+            "answer_id": item["answer_id"],
+            "analysis_url": f"/api/v1/answers/{item['answer_id']}/analysis",
+        }
+        for item in result["question_analyses"]
+    ]
+    report = {
+        "interview_id": interview_id,
+        "question_count": len(interview.get("questions", [])),
+        "completed_count": len(result["question_analyses"]),
+        **result["aggregate_scores"],
+        **draft,
+        "overall_content_score": result["aggregate_scores"]["content_score"],
+        "top_strengths": draft.get("strengths", []),
+        "answer_analyses": answer_analyses,
+        "question_analyses": answer_analyses,
+    }
     Store.reports[interview_id] = report
     return report

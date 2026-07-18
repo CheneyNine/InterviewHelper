@@ -63,10 +63,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     window.clearTimeout(timeoutId);
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ApiErrorShape;
-    const code = body.error?.code
+    const body = (await response.json().catch(() => ({}))) as ApiErrorShape & {
+      detail?: { code?: string; message?: string };
+    };
+    const error = body.error ?? body.detail;
+    const code = error?.code
       ?? (response.status === 404 ? "ROUTE_NOT_FOUND" : response.status === 405 ? "METHOD_NOT_ALLOWED" : "UNKNOWN_ERROR");
-    throw new ApiError(friendlyError(response.status, code, body.error?.message ?? response.statusText), response.status, code);
+    throw new ApiError(friendlyError(response.status, code, error?.message ?? response.statusText), response.status, code);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
