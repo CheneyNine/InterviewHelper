@@ -3,12 +3,32 @@ from __future__ import annotations
 import uuid
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import HTMLResponse
 
 from .config import Settings
 from .model_client import ModelClientError, OpenAICompatibleClient
 from .schemas import QuestionGenerationRequest
 
 app = FastAPI(title="InterviewHelper Interviewer AI", version="1.0.0")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def service_home() -> str:
+    return """<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><title>InterviewHelper Interviewer AI</title></head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: 48px auto; line-height: 1.6;">
+    <h1>InterviewHelper Interviewer AI</h1>
+    <p>问题生成服务正在运行。</p>
+    <ul>
+      <li><a href="/docs">打开 Swagger API 测试页面</a></li>
+      <li><a href="/healthz">检查服务健康状态</a></li>
+    </ul>
+    <h2>接口</h2>
+    <code>POST /internal/v1/question-sets:generate</code>
+    <p>请在 Swagger 页面中填写岗位名称、职位描述、职位要求和面试环节进行测试。</p>
+  </body>
+</html>"""
 
 
 @app.get("/healthz")
