@@ -7,7 +7,8 @@ from fastapi.responses import HTMLResponse
 
 from .config import Settings
 from .model_client import ModelClientError, OpenAICompatibleClient
-from .schemas import QuestionGenerationRequest
+from .prompt import EVALUATION_PROMPT_VERSION
+from .schemas import AnswerEvaluationRequest, QuestionGenerationRequest
 
 app = FastAPI(title="InterviewHelper Interviewer AI", version="1.0.0")
 
@@ -56,3 +57,31 @@ async def generate_question_set(
             detail={"code": "MODEL_CONFIG_ERROR", "message": str(exc), "request_id": request_id},
         ) from exc
     return {**result.model_dump(), "request_id": request_id}
+
+
+@app.post("/internal/v1/content-evaluations")
+async def evaluate_content(
+    request: AnswerEvaluationRequest,
+    x_request_id: str | None = Header(default=None),
+) -> dict:
+    request_id = x_request_id or request.request_id or str(uuid.uuid4())
+    settings = Settings.from_env()
+    try:
+        result = await OpenAICompatibleClient(settings).evaluate_answer(request)
+    except ModelClientError as exc:
+        status = 504 if exc.code == "MODEL_TIMEOUT" else 502
+        raise HTTPException(
+            status_code=status,
+            detail={"code": exc.code, "message": str(exc), "request_id": request_id},
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "MODEL_CONFIG_ERROR", "message": str(exc), "request_id": request_id},
+        ) from exc
+    return {
+        **result.model_dump(),
+        "model": settings.model,
+        "prompt_version": EVALUATION_PROMPT_VERSION,
+        "request_id": request_id,
+    }

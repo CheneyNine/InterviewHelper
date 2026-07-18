@@ -21,21 +21,31 @@ class Settings:
     api_key: str
     api_url: str
     model: str
+    api_urls: tuple[str, ...] = ()
     api_style: str = "auto"
     assistant_id: str = ""
-    timeout_seconds: float = 60.0
+    timeout_seconds: float = 120.0
+    failover_delay_seconds: float = 15.0
 
     @classmethod
     def from_env(cls) -> "Settings":
         if load_dotenv:
             load_dotenv()
+        configured_urls = [
+            os.getenv("URL1", "").strip(),
+            os.getenv("URL2", "").strip(),
+            os.getenv("URL", "").strip(),
+        ]
+        urls = tuple(dict.fromkeys(url for url in configured_urls if url))
         return cls(
             api_key=os.getenv("VAPI", "").strip(),
-            api_url=os.getenv("URL", "").strip(),
+            api_url=urls[0] if urls else "",
+            api_urls=urls,
             model=os.getenv("MODEL", "").strip(),
             api_style=os.getenv("MODEL_API_STYLE", "auto").strip().lower(),
             assistant_id=os.getenv("VAPI_ASSISTANT_ID", "").strip(),
-            timeout_seconds=float(os.getenv("MODEL_TIMEOUT_SECONDS", "60")),
+            timeout_seconds=float(os.getenv("MODEL_TIMEOUT_SECONDS", "120")),
+            failover_delay_seconds=float(os.getenv("MODEL_FAILOVER_DELAY_SECONDS", "15")),
         )
 
     def validate(self) -> None:
@@ -43,7 +53,7 @@ class Settings:
             name
             for name, value in (
                 ("VAPI", self.api_key),
-                ("URL", self.api_url),
+                ("URL1/URL2", self.api_urls),
                 ("MODEL", self.model),
             )
             if not value
@@ -55,18 +65,18 @@ class Settings:
     def chat_completions_url(self) -> str:
         return self.endpoint_url("openai")
 
-    def resolved_api_style(self) -> str:
+    def resolved_api_style(self, base_url: str | None = None) -> str:
         if self.api_style in {"openai", "responses", "anthropic"}:
             return self.api_style
-        lowered = self.api_url.lower()
+        lowered = (base_url or self.api_url).lower()
         if lowered.endswith("/messages"):
             return "anthropic"
         if lowered.endswith("/responses"):
             return "responses"
         return "openai"
 
-    def endpoint_url(self, style: str | None = None) -> str:
-        url = self.api_url.rstrip("/")
+    def endpoint_url(self, style: str | None = None, base_url: str | None = None) -> str:
+        url = (base_url or self.api_url).rstrip("/")
         if url.endswith(("/chat/completions", "/responses", "/messages")):
             return url
         # Most OpenAI-compatible gateways use /v1 when only a host is supplied;

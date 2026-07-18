@@ -23,6 +23,8 @@ def test_prompt_contains_all_job_inputs_and_stage_guidance():
     assert "机器学习基础扎实" in joined
     assert "技术面" in joined
     assert "恰好包含 5 个元素" in joined
+    assert "reference_answer" in joined
+    assert "evaluation_rubric" in joined
     assert "只输出一个合法 JSON 对象" in messages[0]["content"]
 
 

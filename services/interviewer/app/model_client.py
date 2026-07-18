@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+import asyncio
 from typing import Any
 
 import httpx
 
 from .config import Settings
-from .prompt import PROMPT_VERSION, build_messages
-from .schemas import GeneratedQuestionSet, QuestionGenerationRequest
+from .prompt import EVALUATION_PROMPT_VERSION, PROMPT_VERSION, build_evaluation_messages, build_messages
+from .schemas import AnswerEvaluation, AnswerEvaluationRequest, GeneratedQuestionSet, QuestionGenerationRequest
 
 
 class ModelClientError(RuntimeError):
@@ -73,9 +74,15 @@ class OpenAICompatibleClient:
     def __init__(self, settings: Settings):
         self.settings = settings
 
-    async def _request(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
+    async def _request_once(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        base_url: str,
+        json_mode: bool = True,
+    ) -> str:
         self.settings.validate()
-        style = self.settings.resolved_api_style()
+        style = self.settings.resolved_api_style(base_url)
         system_messages = [message["content"] for message in messages if message["role"] == "system"]
         user_messages = [message for message in messages if message["role"] != "system"]
         payload: dict[str, Any] = {
@@ -102,7 +109,7 @@ class OpenAICompatibleClient:
             headers["Authorization"] = self.settings.authorization_header
         try:
             async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
-                response = await client.post(self.settings.endpoint_url(style), headers=headers, json=payload)
+                response = await client.post(self.settings.endpoint_url(style, base_url), headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise ModelClientError("MODEL_TIMEOUT", "Model request timed out") from exc
         except httpx.HTTPError as exc:
@@ -111,13 +118,59 @@ class OpenAICompatibleClient:
             raise ModelClientError("DEPENDENCY_UNAVAILABLE", "Model endpoint returned a server error", status_code=response.status_code)
         if response.status_code >= 400:
             if json_mode and style == "openai" and response.status_code in (400, 404, 422):
-                return await self._request(messages, json_mode=False)
+                return await self._request_once(messages, base_url=base_url, json_mode=False)
             raise ModelClientError("MODEL_REQUEST_REJECTED", "Model endpoint rejected the request", status_code=response.status_code)
         try:
             payload = response.json()
         except ValueError as exc:
             raise ModelClientError("MODEL_BAD_RESPONSE", "Model endpoint did not return JSON") from exc
         return _content_from_response(payload)
+
+    async def _request(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
+        """Request from URL1 and hedge to URL2 when the first endpoint is slow.
+
+        A second request is only started after the configured delay. The first
+        successful response wins; pending requests are cancelled afterwards.
+        """
+        self.settings.validate()
+        urls = self.settings.api_urls or (self.settings.api_url,)
+        tasks = {
+            asyncio.create_task(
+                self._delayed_request(messages, base_url=url, delay=index * self.settings.failover_delay_seconds, json_mode=json_mode)
+            )
+            for index, url in enumerate(urls)
+        }
+        errors: list[ModelClientError] = []
+        try:
+            while tasks:
+                done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    try:
+                        return task.result()
+                    except ModelClientError as exc:
+                        errors.append(exc)
+                        if exc.code not in {"MODEL_TIMEOUT", "DEPENDENCY_UNAVAILABLE"}:
+                            raise
+            if errors:
+                raise errors[-1]
+            raise ModelClientError("DEPENDENCY_UNAVAILABLE", "No model endpoint is configured")
+        finally:
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _delayed_request(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        base_url: str,
+        delay: float,
+        json_mode: bool,
+    ) -> str:
+        if delay > 0:
+            await asyncio.sleep(delay)
+        return await self._request_once(messages, base_url=base_url, json_mode=json_mode)
 
     async def generate_question_set(self, request: QuestionGenerationRequest) -> GeneratedQuestionSet:
         messages = build_messages(request)
@@ -135,6 +188,21 @@ class OpenAICompatibleClient:
                 return repaired
             except Exception as exc:
                 raise ModelClientError("MODEL_BAD_RESPONSE", "Model output failed schema validation after one repair attempt") from exc
+
+    async def evaluate_answer(self, request: AnswerEvaluationRequest) -> AnswerEvaluation:
+        raw = await self._request(build_evaluation_messages(request))
+        try:
+            return AnswerEvaluation.model_validate(parse_json_object(raw))
+        except Exception as first_error:
+            repair_note = (
+                "必须返回 overall_score、content_score、delivery_score、dimensions、strengths、"
+                f"improvements、evidence、limitations、disclaimer；原始校验错误：{first_error}"
+            )
+            repaired_raw = await self._request(build_evaluation_messages(request, repair_note))
+            try:
+                return AnswerEvaluation.model_validate(parse_json_object(repaired_raw))
+            except Exception as exc:
+                raise ModelClientError("MODEL_BAD_RESPONSE", "Evaluation output failed schema validation after one repair attempt") from exc
 
     @staticmethod
     def _validate_order_and_count(question_set: GeneratedQuestionSet, expected_count: int) -> None:

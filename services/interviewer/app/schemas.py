@@ -47,6 +47,37 @@ class GeneratedQuestion(BaseModel):
     competencies: list[str] = Field(..., min_length=1, max_length=5)
     expected_signals: list[str] = Field(..., min_length=1, max_length=8)
     follow_up_questions: list[str] = Field(default_factory=list, max_length=3)
+    reference_answer: "ReferenceAnswer"
+    evaluation_rubric: list["RubricCriterion"] = Field(..., min_length=3, max_length=8)
+
+
+class LogicPath(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(..., min_length=2, max_length=100)
+    explanation: str = Field(..., min_length=8, max_length=500)
+    key_points: list[str] = Field(..., min_length=1, max_length=6)
+
+
+class ReferenceAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    positioning: str = Field(..., min_length=8, max_length=300)
+    logic_paths: list[LogicPath] = Field(..., min_length=1, max_length=4)
+    answer_outline: list[str] = Field(..., min_length=2, max_length=8)
+    evidence_to_include: list[str] = Field(..., min_length=1, max_length=8)
+    common_gaps: list[str] = Field(..., min_length=1, max_length=6)
+
+
+class RubricCriterion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: str = Field(..., min_length=2, max_length=80)
+    weight: float = Field(..., ge=0, le=1)
+    description: str = Field(..., min_length=8, max_length=300)
+    strong_signals: list[str] = Field(..., min_length=1, max_length=6)
+    partial_signals: list[str] = Field(..., min_length=1, max_length=6)
+    missing_signals: list[str] = Field(..., min_length=1, max_length=6)
 
 
 class GeneratedQuestionSet(BaseModel):
@@ -55,3 +86,59 @@ class GeneratedQuestionSet(BaseModel):
     questions: list[GeneratedQuestion] = Field(..., min_length=3, max_length=10)
     model: str
     prompt_version: str
+
+
+class ReportObservation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(..., min_length=2, max_length=80)
+    start_ms: int | None = Field(default=None, ge=0)
+    end_ms: int | None = Field(default=None, ge=0)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    message: str = Field(..., min_length=2, max_length=500)
+
+
+class MultimodalAnswerReport(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    answer_text: str = Field(..., min_length=1, max_length=20000)
+    facial_behavior_description: str | None = Field(default=None, max_length=4000)
+    body_language_description: str | None = Field(default=None, max_length=4000)
+    voice_delivery_description: str | None = Field(default=None, max_length=4000)
+    metrics: dict[str, float | int | str | None] = Field(default_factory=dict)
+    observations: list[ReportObservation] = Field(default_factory=list, max_length=100)
+
+
+class AnswerEvaluationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str | None = None
+    job_title: str = Field(..., min_length=1, max_length=200)
+    job_description: str = Field(..., min_length=20, max_length=12000)
+    question: GeneratedQuestion
+    multimodal_report: MultimodalAnswerReport
+    locale: str = Field(default="zh-CN", min_length=2, max_length=20)
+
+
+class EvaluationDimension(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: str = Field(..., min_length=2, max_length=80)
+    score: float = Field(..., ge=0, le=1)
+    weight: float = Field(..., ge=0, le=1)
+    rationale: str = Field(..., min_length=4, max_length=500)
+    evidence: list[str] = Field(default_factory=list, max_length=6)
+
+
+class AnswerEvaluation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    overall_score: float = Field(..., ge=0, le=1)
+    content_score: float = Field(..., ge=0, le=1)
+    delivery_score: float = Field(..., ge=0, le=1)
+    dimensions: list[EvaluationDimension] = Field(..., min_length=4, max_length=10)
+    strengths: list[str] = Field(..., min_length=1, max_length=8)
+    improvements: list[str] = Field(..., min_length=1, max_length=8)
+    evidence: list[str] = Field(..., min_length=1, max_length=10)
+    limitations: list[str] = Field(default_factory=list, max_length=6)
+    disclaimer: str = "这是基于题目、回答文本和可观察表现的训练反馈，不是心理、医学或招聘结论。"

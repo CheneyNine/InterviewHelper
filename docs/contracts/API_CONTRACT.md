@@ -38,8 +38,18 @@
   "order": 1,
   "type": "behavioral",
   "prompt": "请讲述一次你处理高优先级线上故障的经历。",
+  "purpose": "验证问题分析、主人翁意识和复盘能力。",
   "competencies": ["problem_solving", "ownership"],
-  "expected_signals": ["明确个人行动", "量化影响", "复盘措施"]
+  "expected_signals": ["明确个人行动", "量化影响", "复盘措施"],
+  "follow_up_questions": ["当时你如何判断优先级？"],
+  "reference_answer": {
+    "positioning": "按背景、行动、结果和复盘展开，不要求逐字匹配。",
+    "logic_paths": [],
+    "answer_outline": ["背景", "行动", "结果", "复盘"],
+    "evidence_to_include": ["个人贡献", "量化结果"],
+    "common_gaps": ["只讲团队行为，没有说明个人行动"]
+  },
+  "evaluation_rubric": []
 }
 ```
 
@@ -237,7 +247,30 @@ Response：
       "purpose": "string",
       "competencies": ["ownership"],
       "expected_signals": ["string"],
-      "follow_up_questions": ["string"]
+      "follow_up_questions": ["string"],
+      "reference_answer": {
+        "positioning": "先定义问题目标和约束，再说明方法、权衡、验证和结果。",
+        "logic_paths": [
+          {
+            "title": "目标与约束",
+            "explanation": "先界定业务目标、数据条件和系统约束。",
+            "key_points": ["目标指标", "数据范围", "延迟或成本约束"]
+          }
+        ],
+        "answer_outline": ["背景与目标", "方法与权衡", "实验与结果", "复盘与改进"],
+        "evidence_to_include": ["个人具体行动", "量化结果"],
+        "common_gaps": ["只讲概念，没有个人贡献或结果"]
+      },
+      "evaluation_rubric": [
+        {
+          "dimension": "技术准确性",
+          "weight": 0.25,
+          "description": "技术解释是否正确且符合题目约束。",
+          "strong_signals": ["说明假设、方法和权衡"],
+          "partial_signals": ["方向正确但细节不足"],
+          "missing_signals": ["出现关键概念错误"]
+        }
+      ]
     }
   ],
   "model": "configured-model-name",
@@ -247,23 +280,69 @@ Response：
 
 ### `POST /internal/v1/content-evaluations`
 
-Interviewer AI 提供。不得接收视频文件。
+Interviewer AI 提供。不得接收视频文件；接收 Multimodal 已经提取的文本报告和观察证据。
 
 ```json
 {
   "request_id": "uuid",
+  "job_title": "电商算法实习生",
   "job_description": "string",
   "question": {
     "prompt": "string",
+    "type": "technical",
+    "purpose": "string",
     "competencies": ["ownership"],
-    "expected_signals": ["string"]
+    "expected_signals": ["string"],
+    "reference_answer": {
+      "positioning": "string",
+      "logic_paths": [],
+      "answer_outline": [],
+      "evidence_to_include": [],
+      "common_gaps": []
+    },
+    "evaluation_rubric": []
   },
-  "transcript": "string",
+  "multimodal_report": {
+    "answer_text": "string",
+    "facial_behavior_description": "中性、可观察的表情描述，可为空",
+    "body_language_description": "中性、可观察的动作描述，可为空",
+    "voice_delivery_description": "语音和表达描述，可为空",
+    "metrics": {"words_per_minute": 168.2, "pause_ratio": 0.19},
+    "observations": [
+      {"code": "FAST_SPEECH", "start_ms": 32000, "end_ms": 46000, "confidence": 0.81, "message": "该时间段语速较快。"}
+    ]
+  },
   "locale": "zh-CN"
 }
 ```
 
-返回 Public `AnswerAnalysis.content` 对象，外加 `model` 和 `prompt_version`。
+Response：
+
+```json
+{
+  "overall_score": 0.74,
+  "content_score": 0.78,
+  "delivery_score": 0.65,
+  "dimensions": [
+    {
+      "dimension": "technical_or_factual_accuracy",
+      "score": 0.80,
+      "weight": 0.20,
+      "rationale": "核心建模方向正确，但没有解释负样本构造。",
+      "evidence": ["回答中说明了召回和排序两阶段"]
+    }
+  ],
+  "strengths": ["回答与题目相关", "说明了个人采取的行动"],
+  "improvements": ["补充量化结果", "说明实验设计和权衡"],
+  "evidence": ["回答文本第 2 句提到……", "报告观察到……"],
+  "limitations": ["视频报告未提供足够证据判断某项指标"],
+  "disclaimer": "这是基于题目、回答文本和可观察表现的训练反馈，不是心理、医学或招聘结论。",
+  "model": "configured-model-name",
+  "prompt_version": "evaluation-v1"
+}
+```
+
+评分约定：内容质量占 `overall_score` 的 70%，表达表现占 30%。表情、视线、动作只能作为可观察证据，不能直接推断焦虑、不自信、诚实或人格。
 
 ### `POST /internal/v1/media-analyses`
 
