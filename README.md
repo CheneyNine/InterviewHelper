@@ -18,7 +18,7 @@ MVP 只实现一条完整链路：
 
 | 负责人 | 工作目录 | 计划文档 | 核心职责 |
 | --- | --- | --- | --- |
-| 1：移动端 App | `apps/mobile/` | [`docs/teams/01-mobile/PLAN.md`](docs/teams/01-mobile/PLAN.md) | JD、录制流程、进度与报告 UI |
+| 1：桌面端 Mac App | `apps/desktop/` | [`docs/teams/01-desktop/PLAN.md`](docs/teams/01-desktop/PLAN.md) | JD、录制流程、进度与报告 UI |
 | 2：Core API | `services/api/` | [`docs/teams/02-api/PLAN.md`](docs/teams/02-api/PLAN.md) | 公共 API、数据库、文件、状态与编排 |
 | 3：Interviewer AI | `services/interviewer/` | [`docs/teams/03-interviewer-ai/PLAN.md`](docs/teams/03-interviewer-ai/PLAN.md) | 问题生成、回答内容评分与 Prompt |
 | 4：Multimodal | `workers/multimodal/` | [`docs/teams/04-multimodal/PLAN.md`](docs/teams/04-multimodal/PLAN.md) | 音视频特征、时间证据和表达建议 |
@@ -47,7 +47,7 @@ MVP 只实现一条完整链路：
 初始化仓库后，每人从 `main` 建独立分支：
 
 ```text
-feat/mobile-interview-flow
+feat/desktop-interview-flow
 feat/api-session-orchestration
 feat/ai-question-evaluation
 feat/mm-audio-video-analysis

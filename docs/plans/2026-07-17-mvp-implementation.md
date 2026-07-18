@@ -4,9 +4,9 @@
 
 **Goal:** 四人并行实现 JD 生成问题、逐题音视频回答、离线多模态分析和训练报告的最小可演示闭环。
 
-**Architecture:** 单仓库中由 Mobile App 调用 Core API；Core API 持久化状态并编排两个内部 AI 服务。模块通过版本化 HTTP/JSON 契约隔离，先用 Stub 完成联调，再逐一替换真实模型。
+**Architecture:** 单仓库中由 Desktop Mac App 调用 Core API；Core API 持久化状态并编排两个内部 AI 服务。模块通过版本化 HTTP/JSON 契约隔离，先用 Stub 完成联调，再逐一替换真实模型。
 
-**Tech Stack:** React Native + Expo/TypeScript、Expo Router、TanStack Query、Zustand、FastAPI/Python、SQLAlchemy、SQLite→PostgreSQL、HTTPX、ffmpeg、Docker Compose。
+**Tech Stack:** Tauri 2、React/Vite/TypeScript、TanStack Query、Zustand、FastAPI/Python、SQLAlchemy、SQLite→PostgreSQL、HTTPX、ffmpeg、Docker Compose。
 
 ---
 
@@ -64,14 +64,14 @@
 4. 验证错误响应和幂等行为。
 5. 提交 `feat(api): add public MVP stub`。
 
-### Task 4: Mobile App 纵向流程
+### Task 4: Desktop Mac App 纵向流程
 
 **Files:**
-- Create: `apps/mobile/app/index.tsx`
-- Create: `apps/mobile/app/interview/[id]/index.tsx`
-- Create: `apps/mobile/app/interview/[id]/report.tsx`
-- Create: `apps/mobile/src/lib/api.ts`
-- Test: `apps/mobile/src/lib/api.test.ts`
+- Create: `apps/desktop/src/pages/JobInput.tsx`
+- Create: `apps/desktop/src/pages/Interview.tsx`
+- Create: `apps/desktop/src/pages/InterviewReport.tsx`
+- Create: `apps/desktop/src/lib/api.ts`
+- Test: `apps/desktop/src/lib/api.test.ts`
 
 **Steps:**
 
@@ -80,15 +80,15 @@
 3. 完成问题显示和文本占位回答。
 4. 完成 Job 轮询和报告展示。
 5. 用 Core API Stub 录制一次端到端屏幕演示。
-6. 提交 `feat(mobile): complete stub interview flow`。
+6. 提交 `feat(desktop): complete stub interview flow`。
 
 ## 里程碑 2：第四天完成真实录制与两个内部 Stub
 
 ### Task 5: 媒体录制和上传
 
 **Files:**
-- Create: `apps/mobile/src/components/AnswerRecorder.tsx`
-- Create: `apps/mobile/src/hooks/useAnswerRecorder.ts`
+- Create: `apps/desktop/src/components/AnswerRecorder.tsx`
+- Create: `apps/desktop/src/hooks/useAnswerRecorder.ts`
 - Create: `services/api/app/storage/media.py`
 - Test: `services/api/tests/test_media_upload.py`
 
@@ -96,8 +96,8 @@
 
 1. 测试 API 拒绝非法 MIME、超大和空文件。
 2. 实现安全文件名、本地写入和元数据持久化。
-3. 实现真机录制、重录、本地预览和 multipart 上传。
-4. 用 iOS/Android 生成的真实媒体跑上传测试。
+3. 实现 Mac 录制、重录、本地预览和 multipart 上传。
+4. 用 macOS 生成的真实 WebM/MP4 跑上传测试。
 5. 提交 `feat: record and upload interview answers`。
 
 ### Task 6: 内部服务 Stub 与编排
@@ -189,11 +189,11 @@
 
 ## 四人并行节奏
 
-| 天 | Mobile App | Core API | Interviewer AI | Multimodal |
+| 天 | Desktop Mac App | Core API | Interviewer AI | Multimodal |
 | --- | --- | --- | --- | --- |
 | 1 | 页面 Mock | Public Stub | Internal Stub | Internal Stub |
 | 2 | 接 Public Stub | 文件接口 | 评测集/Prompt | ffmpeg/样本 |
-| 3-4 | 真机录制上传 | 持久化/编排 | 真实问题生成 | ASR |
+| 3-4 | Mac 录制上传 | 持久化/编排 | 真实问题生成 | ASR |
 | 5-7 | 报告/错误态 | 真实服务联调 | 内容评分 | 音频指标 |
 | 8-10 | E2E/体验 | 删除/恢复 | 稳定性 | 降级/性能 |
 

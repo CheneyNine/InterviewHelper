@@ -6,7 +6,7 @@
 
 | 人员 | 模块 | 负责的最终结果 | 不负责 |
 | --- | --- | --- | --- |
-| 1 | Mobile App | 用户能在 iOS/Android 上输入 JD、录制、上传、看报告 | 模型调用、数据库状态推断、最终评分逻辑 |
+| 1 | Desktop Mac App | 用户能在 macOS 上输入 JD、录制、上传、看报告 | 模型调用、数据库状态推断、最终评分逻辑 |
 | 2 | Core API | 数据、状态、文件、任务和错误在各种失败情况下保持一致 | Prompt、音视频算法、UI |
 | 3 | Interviewer AI | 根据岗位与环节生成问题，并对 transcript 做内容评分 | 文件上传、用户会话、视频指标 |
 | 4 | Multimodal | 从媒体得到 transcript、音频指标、有限视频指标和时间证据 | 业务数据库、问题生成、招聘或心理判断 |
@@ -14,7 +14,7 @@
 ## 依赖关系
 
 ```text
-负责人 1 Mobile App ──Public API──> 负责人 2 Core API
+负责人 1 Desktop Mac App ──Public API──> 负责人 2 Core API
                                       │
                                       ├──Internal API──> 负责人 3 Interviewer AI
                                       └──Internal API──> 负责人 4 Multimodal
@@ -22,12 +22,12 @@
 
 ## 每个人的交付物
 
-### 负责人 1：Mobile App
+### 负责人 1：Desktop Mac App
 
-- Expo 工程和页面路由。
-- 摄像头/麦克风权限、录制、预览、重录、上传进度。
+- Tauri + React 工程和页面路由。
+- macOS 摄像头/麦克风权限、录制、预览、重录、上传进度。
 - Core API Client 和错误状态 UI。
-- iOS、Android 各一次完整演示。
+- Intel Mac、Apple Silicon Mac 各一次完整演示。
 
 ### 负责人 2：Core API
 

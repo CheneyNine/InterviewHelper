@@ -10,7 +10,7 @@ Accepted for MVP
 
 ## Decision
 
-使用单仓库、四个清晰目录。Mobile App 只调用 Core API，Core API 通过内部 HTTP 调用两个 AI 服务。第一版任务可进程内后台执行，保留以后替换 Redis 队列的边界。
+使用单仓库、四个清晰目录。Desktop Mac App 只调用 Core API，Core API 通过内部 HTTP 调用两个 AI 服务。第一版任务可进程内后台执行，保留以后替换 Redis 队列的边界。
 
 ## Consequences
 

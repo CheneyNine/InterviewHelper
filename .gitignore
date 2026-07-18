@@ -6,6 +6,7 @@ node_modules/
 .next/
 .expo/
 .expo-shared/
+apps/desktop/src-tauri/target/
 dist/
 build/
 __pycache__/

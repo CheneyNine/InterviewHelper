@@ -31,7 +31,7 @@
 
 ## 与其他模块的交互
 
-- 为 App 提供稳定 Public API 和第一天可用 Stub。
+- 为 Mac App 提供稳定 Public API 和第一天可用 Stub。
 - 调用 Interviewer AI 的两个 Internal API。
 - 调用 Multimodal 的一个 Internal API，只传受控媒体 URI。
 - AI 返回不合法 JSON 时转换为 `MODEL_BAD_RESPONSE`，不能将原始异常直接泄露给 App。

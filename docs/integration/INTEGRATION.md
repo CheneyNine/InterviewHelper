@@ -9,9 +9,9 @@
 
 ## 2. 并行开发所需 Stub
 
-### API 给 App 的 Stub
+### API 给 Mac App 的 Stub
 
-API 负责人第一个工作日提供：创建会话、查询会话、上传回答、查询 Job、查询报告。分析可以固定延迟 3 秒后返回示例数据。App 不需要等待真实模型即可开发。
+API 负责人第一个工作日提供：创建会话、查询会话、上传回答、查询 Job、查询报告。分析可以固定延迟 3 秒后返回示例数据。Mac App 不需要等待真实模型即可开发。
 
 ### Interviewer AI Stub
 
@@ -24,8 +24,8 @@ AI 负责人提供固定 5 题和固定内容评分。Core API 可通过 `INTERV
 ## 3. 推荐合并顺序
 
 1. 契约、状态机与 Docker Compose 基础。
-2. Core API Stub + App 文字流程。
-3. App 真实录制上传 + API 文件持久化。
+2. Core API Stub + Mac App 文字流程。
+3. Mac App 真实录制上传 + API 文件持久化。
 4. Interviewer AI 真实问题生成。
 5. Multimodal 真实转写与音频指标。
 6. Interviewer AI 真实内容评分。
@@ -46,7 +46,7 @@ AI 负责人提供固定 5 题和固定内容评分。Core API 可通过 `INTERV
 
 - 上传 `.txt` 返回 `415 UNSUPPORTED_MEDIA_TYPE`。
 - 同一 `Idempotency-Key` 重传不会创建两条 Answer。
-- Multimodal 停机时 Job 最终失败，App 显示重试入口。
+- Multimodal 停机时 Job 最终失败，Mac App 显示重试入口。
 - 视频中无人脸时音频与内容结果仍然可用。
 - 删除 Interview 后其查询接口返回 404，媒体不可访问。
 
