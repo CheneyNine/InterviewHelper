@@ -19,7 +19,6 @@ export function AnswerRecorder({ question }: AnswerRecorderProps) {
   const recorder = useAnswerRecorder();
   const getIdempotencyKey = useInterviewStore((state) => state.getIdempotencyKey);
   const beginAnalysis = useInterviewStore((state) => state.beginAnalysis);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const minDurationReached = recorder.elapsedMs >= 30_000;
@@ -58,7 +57,7 @@ export function AnswerRecorder({ question }: AnswerRecorderProps) {
         recorder.recording,
         recorder.elapsedMs,
         getIdempotencyKey(question.id),
-        setUploadProgress,
+        () => undefined,
       );
       await removeRecording(question.id).catch(() => undefined);
       beginAnalysis(result.job, result.answer.id);
@@ -115,10 +114,10 @@ export function AnswerRecorder({ question }: AnswerRecorderProps) {
               <CircleStop size={24} />
             </button>
           )}
-          {recorder.status === "recorded" && !uploading && (
+          {recorder.status === "recorded" && (
             <>
-              <button className="button button-secondary" onClick={handleRetake}><RefreshCw size={16} />重录</button>
-              <button className="button button-primary" disabled={!minDurationReached} onClick={handleUpload}>
+              <button className="button button-secondary" disabled={uploading} onClick={handleRetake}><RefreshCw size={16} />重录</button>
+              <button className="button button-primary" disabled={!minDurationReached || uploading} onClick={handleUpload}>
                 <Upload size={16} />确认上传
               </button>
             </>
@@ -130,12 +129,6 @@ export function AnswerRecorder({ question }: AnswerRecorderProps) {
         </div>
       </div>
 
-      {uploading && (
-        <div className="upload-progress" aria-live="polite">
-          <div className="progress-label"><span>正在安全上传</span><strong>{Math.round(uploadProgress * 100)}%</strong></div>
-          <div className="progress-track"><span style={{ width: `${uploadProgress * 100}%` }} /></div>
-        </div>
-      )}
       {(recorder.error || uploadError) && <div className="inline-error">{recorder.error || uploadError}</div>}
     </section>
   );

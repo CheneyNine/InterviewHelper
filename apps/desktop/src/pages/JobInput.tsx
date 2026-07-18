@@ -84,7 +84,6 @@ export function JobInput() {
     <div className="job-page page-grid">
       <section className="job-editor">
         <div className="eyebrow"><Sparkles size={15} /> 新建模拟面试</div>
-        <h1>把目标岗位带进来，<br />我们从真实问题开始。</h1>
         <p className="lede">补充岗位和面试环节，我们会生成带参考思路与评分标准的结构化问题。</p>
 
         <div className="field-block">

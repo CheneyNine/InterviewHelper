@@ -1,14 +1,16 @@
-import { BrainCircuit, CircleDot, RotateCcw } from "lucide-react";
+import { BrainCircuit, CircleDot } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import { useInterviewStore } from "../store/interviewStore";
+import { ProjectSidebar } from "./ProjectSidebar";
 
-const phaseOrder = ["generating", "interview", "analysis", "report"];
-const labels = ["生成问题", "模拟面试", "逐题分析", "训练报告"];
+const phaseOrder = ["generating", "interview", "report"];
+const labels = ["生成问题", "模拟面试", "训练报告"];
 
 export function AppShell({ children }: PropsWithChildren) {
   const phase = useInterviewStore((state) => state.phase);
-  const reset = useInterviewStore((state) => state.reset);
-  const current = phase === "welcome" ? -1 : phaseOrder.indexOf(phase);
+  const interview = useInterviewStore((state) => state.interview);
+  const normalizedPhase = phase === "answer-detail" ? "report" : phase;
+  const current = normalizedPhase === "welcome" ? -1 : phaseOrder.indexOf(normalizedPhase);
 
   return (
     <div className="app-shell">
@@ -23,9 +25,12 @@ export function AppShell({ children }: PropsWithChildren) {
             ))}
           </nav>
         )}
-        <button className="icon-button" onClick={reset} title="开始新面试" aria-label="开始新面试"><RotateCcw size={18} /></button>
+        <div className="topbar-project-name">{interview?.job_title || "个人训练工作区"}</div>
       </header>
-      <main>{children}</main>
+      <div className="workspace-body">
+        <ProjectSidebar />
+        <main className="workspace-main">{children}</main>
+      </div>
     </div>
   );
 }

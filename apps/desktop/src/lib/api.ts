@@ -4,12 +4,14 @@ import type {
   ApiErrorShape,
   CreateInterviewInput,
   Interview,
+  InterviewProjectSummary,
   InterviewReport,
   Job,
   Question,
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
+const REQUEST_TIMEOUT_MS = 15_000;
 // Stub mode is opt-in so local integration uses the Core API by default.
 export const usingStub = import.meta.env.VITE_USE_STUB === "true";
 
@@ -38,20 +40,27 @@ function friendlyError(status: number, code: string, fallback: string) {
     NETWORK_ERROR: "无法连接 Core API，请检查 Public API 地址和服务是否已启动。",
     METHOD_NOT_ALLOWED: "当前地址不是 InterviewHelper Core API，请检查 VITE_API_BASE_URL。",
     ROUTE_NOT_FOUND: "Core API 未提供该接口，请确认服务版本和 Public API 路径。",
+    REQUEST_TIMEOUT: "Core API 请求超时，请确认 8000 端口服务已启动且 Interviewer 服务可用。",
   };
   return messages[code] ?? fallback ?? `请求失败 (${status})`;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, init);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal });
   } catch (cause) {
+    const timedOut = cause instanceof DOMException && cause.name === "AbortError";
+    const code = timedOut ? "REQUEST_TIMEOUT" : "NETWORK_ERROR";
     throw new ApiError(
-      friendlyError(0, "NETWORK_ERROR", cause instanceof Error ? cause.message : "Network request failed"),
+      friendlyError(0, code, cause instanceof Error ? cause.message : "Network request failed"),
       0,
-      "NETWORK_ERROR",
+      code,
     );
+  } finally {
+    window.clearTimeout(timeoutId);
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorShape;
@@ -125,6 +134,30 @@ function makeJob(type: Job["type"], resourceId?: string): Job {
   return job;
 }
 
+/**
+ * GET /interviews
+ * 为左侧项目栏获取当前用户创建过的面试项目。后端应按 updated_at 倒序返回，
+ * 每项只包含列表展示所需的摘要，不应携带 JD 全文或分析详情。
+ */
+export async function listInterviews(): Promise<InterviewProjectSummary[]> {
+  if (!usingStub) {
+    const result = await request<{ interviews: InterviewProjectSummary[] }>("/interviews");
+    return result.interviews;
+  }
+  if (!mockInterview) return [];
+  return [{
+    id: mockInterview.id,
+    job_title: mockInterview.job_title || "未命名岗位",
+    interview_stage: mockInterview.interview_stage || "模拟面试",
+    status: mockInterview.status,
+    question_count: mockInterview.question_count || 0,
+    answered_count: mockAnswers.length,
+    created_at: mockInterview.created_at,
+    updated_at: mockInterview.updated_at || mockInterview.created_at,
+  }];
+}
+
+/** POST /interviews：创建一个面试项目并启动问题生成 Job。 */
 export async function createInterview(input: CreateInterviewInput) {
   if (!usingStub) {
     return request<{ interview: Interview; job: Job }>("/interviews", {
@@ -144,6 +177,10 @@ export async function createInterview(input: CreateInterviewInput) {
   return { interview: mockInterview, job: makeJob("QUESTION_GENERATION", mockInterview.id) };
 }
 
+/**
+ * GET /interviews/{interview_id}
+ * 切换侧栏项目或恢复应用时，读取会话、题目和已提交答案，用于还原答题进度。
+ */
 export async function getInterview(interviewId: string) {
   if (!usingStub) {
     return request<{ interview: Interview; questions: Question[]; answers: Answer[] }>(`/interviews/${interviewId}`);
@@ -178,6 +215,7 @@ export async function getInterview(interviewId: string) {
   };
 }
 
+/** GET /jobs/{job_id}：每 2 秒查询问题生成或回答分析的后端任务进度。 */
 export async function getJob(jobId: string): Promise<Job> {
   if (!usingStub) return request<Job>(`/jobs/${jobId}`);
   await wait(220);
@@ -194,6 +232,10 @@ export async function getJob(jobId: string): Promise<Job> {
   };
 }
 
+/**
+ * POST /questions/{question_id}/answers
+ * 用户确认后上传本题音视频；同一题重试必须复用 idempotencyKey，避免重复 Answer。
+ */
 export async function uploadAnswer(
   questionId: string,
   blob: Blob,
@@ -243,6 +285,7 @@ export async function uploadAnswer(
   });
 }
 
+/** GET /answers/{answer_id}/analysis：在总报告中点开某道题时获取该题完整分析。 */
 export async function getAnswerAnalysis(answerId: string): Promise<AnswerAnalysis> {
   if (!usingStub) return request<AnswerAnalysis>(`/answers/${answerId}/analysis`);
   await wait(300);
@@ -275,6 +318,7 @@ export async function getAnswerAnalysis(answerId: string): Promise<AnswerAnalysi
   };
 }
 
+/** GET /interviews/{interview_id}/report：所有题目分析完成后获取整场聚合报告。 */
 export async function getInterviewReport(interviewId: string): Promise<InterviewReport> {
   if (!usingStub) return request<InterviewReport>(`/interviews/${interviewId}/report`);
   await wait(600);
@@ -291,4 +335,16 @@ export async function getInterviewReport(interviewId: string): Promise<Interview
     })),
     disclaimer: "这些结果是训练建议，不是心理、医学或招聘结论。",
   };
+}
+
+/** DELETE /interviews/{interview_id}：删除项目、关联回答、分析结果和原始媒体。 */
+export async function deleteInterview(interviewId: string): Promise<void> {
+  if (!usingStub) {
+    await request<void>(`/interviews/${interviewId}`, { method: "DELETE" });
+    return;
+  }
+  if (mockInterview?.id === interviewId) {
+    mockInterview = null;
+    mockAnswers = [];
+  }
 }

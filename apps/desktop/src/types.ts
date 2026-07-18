@@ -30,6 +30,17 @@ export interface Interview {
   updated_at?: string;
 }
 
+export interface InterviewProjectSummary {
+  id: string;
+  job_title: string;
+  interview_stage: string;
+  status: InterviewStatus;
+  question_count: number;
+  answered_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Question {
   id: string;
   interview_id: string;
