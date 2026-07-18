@@ -93,11 +93,32 @@ Request：
 
 ```json
 {
-  "job_description": "string，20 到 12000 字符",
+  "job_title": "电商算法实习生",
+  "job_description": "职位描述，20 到 12000 字符",
+  "job_requirements": "任职要求，10 到 12000 字符",
+  "interview_stage": "技术面",
   "locale": "zh-CN",
   "question_count": 5
 }
 ```
+
+字段规则：`job_title`、`job_description`、`job_requirements` 和 `interview_stage` 由 Desktop App 提交；`question_count` 由用户选择（1 到 10），`locale` 默认 `zh-CN`。Desktop App 只调用该 Public API，不得调用 Interviewer 的 `/internal` 地址。
+
+Core API 创建会话后，必须将以下字段原样映射到 Interviewer：
+
+```json
+{
+  "request_id": "由 Core API 生成并作为 X-Request-ID 透传",
+  "job_title": "与 Public API 相同",
+  "job_description": "与 Public API 相同",
+  "job_requirements": "与 Public API 相同",
+  "interview_stage": "与 Public API 相同",
+  "question_count": 5,
+  "locale": "zh-CN"
+}
+```
+
+Core API 不得把完整输入压缩为单一 `jd` 字段，也不得让 Desktop App 直接访问 `:8001/internal/v1/question-sets:generate`。
 
 Response：`201 Created`
 
