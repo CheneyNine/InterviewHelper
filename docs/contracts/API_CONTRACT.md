@@ -216,7 +216,10 @@ Interviewer AI 提供。
 ```json
 {
   "request_id": "uuid",
+  "job_title": "电商算法实习生",
   "job_description": "string",
+  "job_requirements": "string",
+  "interview_stage": "技术面",
   "locale": "zh-CN",
   "question_count": 5
 }
@@ -231,8 +234,10 @@ Response：
       "order": 1,
       "type": "behavioral",
       "prompt": "string",
+      "purpose": "string",
       "competencies": ["ownership"],
-      "expected_signals": ["string"]
+      "expected_signals": ["string"],
+      "follow_up_questions": ["string"]
     }
   ],
   "model": "configured-model-name",
