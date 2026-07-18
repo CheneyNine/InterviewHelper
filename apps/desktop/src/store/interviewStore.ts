@@ -45,14 +45,14 @@ const initialSession = {
   idempotencyKeys: {},
 };
 
-function toProject(interview: Interview, answeredCount = 0, existing?: InterviewProjectSummary): InterviewProjectSummary {
+function toProject(interview: Interview, answeredCount?: number, existing?: InterviewProjectSummary): InterviewProjectSummary {
   return {
     id: interview.id,
     job_title: interview.job_title || existing?.job_title || "未命名岗位",
     interview_stage: interview.interview_stage || existing?.interview_stage || "模拟面试",
     status: interview.status,
     question_count: interview.question_count || existing?.question_count || 0,
-    answered_count: Math.max(answeredCount, existing?.answered_count || 0),
+    answered_count: answeredCount ?? existing?.answered_count ?? 0,
     created_at: interview.created_at || existing?.created_at,
     updated_at: interview.updated_at || new Date().toISOString(),
   };
@@ -71,7 +71,9 @@ export const useInterviewStore = create<InterviewState>()(
       permissionGranted: false,
       projects: [],
       setPermissionGranted: (permissionGranted) => set({ permissionGranted }),
-      setProjects: (projects) => set((state) => ({ projects: mergeProjects(state.projects, projects) })),
+      setProjects: (projects) => set({
+        projects: [...projects].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "")),
+      }),
       startInterview: (interview, activeJob) => set((state) => ({
         ...initialSession,
         interview,
@@ -80,15 +82,21 @@ export const useInterviewStore = create<InterviewState>()(
         projects: mergeProjects(state.projects, [toProject(interview)]),
       })),
       loadInterview: (interview, questions, answers = []) => set((state) => {
-        const answeredIds = new Set(answers.map((answer) => answer.question_id));
+        const answeredIds = new Set(
+          answers
+            .filter((answer) => answer.status !== "FAILED")
+            .map((answer) => answer.question_id),
+        );
         const nextQuestionIndex = questions.findIndex((question) => !answeredIds.has(question.id));
+        const waitingForReport = interview.status === "ANALYZING"
+          || (nextQuestionIndex < 0 && interview.status !== "FAILED");
         return {
           ...initialSession,
           interview,
           questions,
           currentQuestionIndex: nextQuestionIndex < 0 ? Math.max(questions.length - 1, 0) : nextQuestionIndex,
-          phase: "interview",
-          projects: mergeProjects(state.projects, [toProject(interview, answers.length, state.projects.find((item) => item.id === interview.id))]),
+          phase: waitingForReport ? "report" : "interview",
+          projects: mergeProjects(state.projects, [toProject(interview, answeredIds.size, state.projects.find((item) => item.id === interview.id))]),
         };
       }),
       beginAnalysis: (activeJob, activeAnswerId) => set((state) => {

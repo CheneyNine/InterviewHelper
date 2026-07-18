@@ -32,6 +32,7 @@ function friendlyError(status: number, code: string, fallback: string) {
   const messages: Record<string, string> = {
     ANALYSIS_NOT_READY: "分析仍在进行，请稍候。",
     REPORT_NOT_READY: "整场报告正在汇总，请稍候。",
+    INTERVIEW_NOT_FOUND: "该面试项目已不在当前后端数据库中，请选择其他项目或新建面试。",
     INVALID_STATE: "当前会话状态不允许此操作，请刷新后重试。",
     MEDIA_TOO_LARGE: "录制文件超过上传限制，请缩短回答后重录。",
     UNSUPPORTED_MEDIA_TYPE: "当前录制格式不受支持，请更换设备或浏览器后重录。",
