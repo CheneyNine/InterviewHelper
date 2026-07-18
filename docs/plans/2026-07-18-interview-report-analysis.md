@@ -175,3 +175,136 @@ POST /internal/v1/interview-reports:generate
 3. 为多题完成状态增加 `InterviewReport` 聚合器。
 4. 先用确定性分数聚合，再增加整体 LLM 总结。
 5. 添加 ASR/视频证据质量检查和报告中的 `limitations`。
+
+## 6. 五个 MVP 方向的执行清单
+
+### 方向一：跑通单题评估输入
+
+目标：把现有 JSON 报告转换成 Interviewer 已支持的单题评估请求。
+
+实施步骤：
+
+1. Core API 根据 `answer_id` 读取 Question、Interview 和原始报告。
+2. 将 `analysis.transcript.text` 映射为 `answer_text`。
+3. 将 `delivery`、`video`、`formatted_report.dimensions` 归一化为观察证据和指标。
+4. 补齐 Question 的 `reference_answer` 和 `evaluation_rubric`。
+5. 调用 `POST /internal/v1/content-evaluations`。
+6. 校验 `AnswerEvaluation`，失败时保留原始报告并将 Job 标记为可重试。
+
+验收：使用示例 JSON 可以生成一份合法单题评估；ASR 误识别、视频证据不足和观察缺失都会进入 `limitations`。
+
+### 方向二：保存单题分析
+
+目标：单题结果可查询、可重试，且不破坏原始数据。
+
+建议数据结构：
+
+```text
+Answer
+├── raw_media_uri
+├── raw_multimodal_report
+├── transcript_text
+└── AnswerAnalysis
+    ├── content_evaluation
+    ├── delivery_evaluation
+    ├── dimensions
+    ├── strengths
+    ├── improvements
+    ├── evidence
+    └── limitations
+```
+
+实施步骤：
+
+1. 原始 JSON 只读保存，不直接覆盖。
+2. LLM 输出和确定性指标分开保存。
+3. 保存 `model`、`prompt_version`、`analyzer_version` 和 `created_at`。
+4. `GET /api/v1/answers/{answer_id}/analysis` 返回已保存结果。
+5. LLM 调用失败时，Job 进入 `FAILED`，允许只重试当前题。
+
+验收：刷新页面或重启 Core API 后，单题分析仍可查询；重复重试不会创建重复 AnswerAnalysis。
+
+### 方向三：增加多题 InterviewReport 聚合器
+
+目标：等所有已提交题目完成后，生成整场报告的基础数据。
+
+实施步骤：
+
+1. 查询当前 Interview 下所有 Question 和 AnswerAnalysis。
+2. 按 `question.order` 排序，不按完成时间排序。
+3. 判断题目完成、失败和缺失状态。
+4. 统计各维度有效分数的样本数和缺失原因。
+5. 输出 `question_analyses`、完成进度和聚合所需的中间结构。
+
+验收：未完成全部题目时返回 `409 REPORT_NOT_READY`；部分题目失败时报告明确列出失败题目，不误报为完整报告。
+
+### 方向四：确定性聚合后再调用整体 LLM
+
+目标：让数值稳定，让 LLM 只负责跨题解释和建议。
+
+确定性处理：
+
+```text
+每题 content_score / delivery_score
+        ↓
+有效值加权平均
+        ↓
+content_score、delivery_score、overall_score
+        ↓
+计算维度趋势和缺失率
+```
+
+LLM 只接收：
+
+- 每题题目和分数；
+- 每题优势、改进和证据摘要；
+- 跨题指标趋势；
+- 数据限制；
+- 岗位目标和面试环节。
+
+LLM 不接收原始视频，也不能修改已计算的分数。返回整体总结、跨题重复问题、优先改进项和练习计划。
+
+验收：同一批单题分析重复生成报告时数值完全一致；LLM 只影响文字建议，不影响分数。
+
+### 方向五：证据质量和限制信息
+
+目标：避免 ASR、视频缺失或低置信度数据导致错误结论。
+
+建立统一的 `EvidenceQuality`：
+
+```json
+{
+  "transcript_coverage": 0.08,
+  "transcript_confidence": 0.8,
+  "audio_available": true,
+  "video_available": true,
+  "face_evidence_available": false,
+  "warnings": [
+    "转写片段覆盖范围不足",
+    "存在疑似 ASR 误识别",
+    "视频没有足够的人脸证据"
+  ]
+}
+```
+
+处理规则：
+
+- 证据不存在：对应分数为 `null`，不是 0。
+- 证据低置信度：允许描述，但必须附带 `limitations`。
+- 转写疑似错误：保留原文，不擅自修正；LLM 可以提出“请确认原词”。
+- 视频没有人脸：不输出神情或心理相关结论。
+- 所有整体报告都必须包含免责声明。
+
+验收：构造“无视频”“无音频”“低置信度转写”“片段不完整”四类测试数据，系统都不会生成心理诊断或无证据评分。
+
+## 7. 推荐交付顺序
+
+```text
+第 1 步：解析示例 JSON + 单题评估请求
+第 2 步：保存和查询单题分析
+第 3 步：多题状态判断和确定性聚合
+第 4 步：整体报告 LLM 总结
+第 5 步：证据质量、重试和异常场景
+```
+
+前端可以在第 2 步完成后接入单题分析页面；第 4 步完成后再接入整场报告页面。这样即使整体报告 LLM 暂时不可用，用户仍然可以查看已完成的逐题分析。
