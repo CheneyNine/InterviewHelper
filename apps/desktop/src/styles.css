@@ -80,6 +80,8 @@ textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107,
 .generating-mark { width: 68px; height: 68px; display: grid; place-items: center; background: var(--mint); color: var(--green); border-radius: 8px; margin-bottom: 24px; }
 .generation-progress { width: 420px; height: 7px; background: #dfe5df; border-radius: 5px; overflow: hidden; margin-top: 24px; }
 .generation-progress span, .progress-track span { display: block; height: 100%; background: var(--green); transition: width .5s ease; }
+.generation-progress.indeterminate span { width: 35%; animation: progress-indeterminate 1.4s ease-in-out infinite; }
+@keyframes progress-indeterminate { 0% { transform: translateX(-115%); } 100% { transform: translateX(315%); } }
 .progress-number { margin-top: 10px; color: var(--green); }
 .generation-steps { width: 540px; display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 42px; border-top: 1px solid var(--line); padding-top: 20px; }
 .generation-steps div { display: flex; align-items: center; justify-content: center; gap: 7px; color: #9aa39d; font-size: 13px; }
