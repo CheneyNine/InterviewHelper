@@ -10,7 +10,14 @@ import type {
   Question,
 } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8010/api/v1";
+const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return API_BASE_URL;
+  }
+})();
 const REQUEST_TIMEOUT_MS = 15_000;
 // Stub mode is opt-in so local integration uses the Core API by default.
 export const usingStub = import.meta.env.VITE_USE_STUB === "true";
@@ -31,6 +38,7 @@ export class ApiError extends Error {
 function friendlyError(status: number, code: string, fallback: string) {
   const messages: Record<string, string> = {
     ANALYSIS_NOT_READY: "分析仍在进行，请稍候。",
+    ANSWER_ANALYSIS_FAILED: "回答分析失败，请检查远程多模态服务后重新开始本次面试。",
     REPORT_NOT_READY: "整场报告正在汇总，请稍候。",
     INTERVIEW_NOT_FOUND: "该面试项目已不在当前后端数据库中，请选择其他项目或新建面试。",
     INVALID_STATE: "当前会话状态不允许此操作，请刷新后重试。",
@@ -41,7 +49,7 @@ function friendlyError(status: number, code: string, fallback: string) {
     NETWORK_ERROR: "无法连接 Core API，请检查 Public API 地址和服务是否已启动。",
     METHOD_NOT_ALLOWED: "当前地址不是 InterviewHelper Core API，请检查 VITE_API_BASE_URL。",
     ROUTE_NOT_FOUND: "Core API 未提供该接口，请确认服务版本和 Public API 路径。",
-    REQUEST_TIMEOUT: "Core API 请求超时，请确认 8000 端口服务已启动且 Interviewer 服务可用。",
+    REQUEST_TIMEOUT: `Core API 请求超时，请确认 ${API_ORIGIN} 服务已启动且 Interviewer 服务可用。`,
   };
   return messages[code] ?? fallback ?? `请求失败 (${status})`;
 }

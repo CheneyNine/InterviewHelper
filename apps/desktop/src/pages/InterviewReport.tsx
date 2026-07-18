@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Check, Flag, Plus, Trophy } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, Flag, Plus, Trophy } from "lucide-react";
 import { useEffect } from "react";
 import { ApiError, getInterviewReport } from "../lib/api";
 import { useInterviewStore } from "../store/interviewStore";
@@ -20,7 +20,7 @@ export function InterviewReportPage() {
     retry: false,
     refetchInterval: (query) => {
       const error = query.state.error;
-      if (error instanceof ApiError && error.code === "INTERVIEW_NOT_FOUND") return false;
+      if (error instanceof ApiError && error.code !== "REPORT_NOT_READY") return false;
       return report ? false : 2000;
     },
     refetchIntervalInBackground: false,
@@ -33,16 +33,20 @@ export function InterviewReportPage() {
 
   const activeReport = report || reportQuery.data;
   if (!activeReport) {
-    const missingInterview = reportQuery.error instanceof ApiError
-      && reportQuery.error.code === "INTERVIEW_NOT_FOUND";
+    const terminalError = reportQuery.error instanceof ApiError
+      && reportQuery.error.code !== "REPORT_NOT_READY"
+      ? reportQuery.error
+      : null;
+    const missingInterview = terminalError?.code === "INTERVIEW_NOT_FOUND";
     return (
       <div className="center-page report-waiting">
-        {!missingInterview && <span className="spinner" />}
-        <h1>{missingInterview ? "这个项目已失效" : "回答已全部提交"}</h1>
+        {!terminalError && <span className="spinner" />}
+        <h1>{missingInterview ? "这个项目已失效" : terminalError ? "回答分析失败" : "回答已全部提交"}</h1>
+        {terminalError && !missingInterview && <AlertTriangle size={30} />}
         <p>{missingInterview
           ? "当前后端数据库中找不到这个项目，可能是后端重启或数据库被重新初始化。"
-          : "总结页会在后端报告准备好后自动出现，你也可以先切换到侧栏中的其他项目。"}</p>
-        {missingInterview
+          : terminalError?.message ?? "总结页会在后端报告准备好后自动出现，你也可以先切换到侧栏中的其他项目。"}</p>
+        {terminalError
           ? <button className="button button-primary" onClick={newProject}><Plus size={16} />返回并新建面试</button>
           : reportQuery.isError && <span className="muted">报告仍在生成，页面会自动重新获取。</span>}
       </div>

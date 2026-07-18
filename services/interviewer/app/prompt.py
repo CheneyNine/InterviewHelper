@@ -115,6 +115,41 @@ def build_evaluation_messages(request: "AnswerEvaluationRequest", repair_note: s
 dimension_analysis 必须恰好包含以下八个 key，各出现一次：visible_expression（神情与镜头表现，权重 0.10）、content_and_fluency（回答内容与流畅程度，权重 0.15）、tone_and_voice（语气与声音表现，权重 0.10）、answer_structure（回答结构与题目呈现，权重 0.15）、relevance（题目相关性，权重 0.15）、technical_depth（专业准确性与技术深度，权重 0.15）、evidence_and_contribution（证据与个人贡献，权重 0.10）、role_fit（岗位匹配度与业务理解，权重 0.10）。每项都要有 title、score、summary、evidence、suggestions、limitations。没有足够视频/音频证据时表现维度 score 必须为 null；没有足够回答证据时质量维度 score 必须为 null，并说明限制；不要把动作或表情解释成焦虑、不自信、诚实或人格。
 
 不要输出内部推理过程，只输出结论、依据和建议。"""
+    dimension_titles = {
+        "visible_expression": "神态与镜头表现",
+        "content_and_fluency": "回答内容与流畅程度",
+        "tone_and_voice": "语气与声音表现",
+        "answer_structure": "回答结构与题目呈现",
+        "relevance": "题目相关性",
+        "technical_depth": "专业准确性与技术深度",
+        "evidence_and_contribution": "证据与个人贡献",
+        "role_fit": "岗位匹配度与业务理解",
+    }
+    schema_example = {
+        "overall_score": 0.0,
+        "dimension_analysis": [
+            {
+                "key": key,
+                "title": title,
+                "score": None if key in {"visible_expression", "tone_and_voice"} else 0.0,
+                "summary": "至少两个字的评价总结",
+                "evidence": ["来自回答或多模态报告的明确证据"],
+                "suggestions": ["具体、可执行的改进建议"],
+                "limitations": [],
+            }
+            for key, title in dimension_titles.items()
+        ],
+        "strengths": ["有证据支持的优点"],
+        "improvements": ["具体改进方向"],
+        "evidence": ["来自回答文本或多模态报告的证据"],
+        "limitations": [],
+        "disclaimer": "这是训练反馈，不是心理、医学或招聘结论。",
+    }
+    system += (
+        "\n\n严格按照下面的 JSON 结构输出。dimension_analysis 必须保留示例中的八个 key，"
+        "不得增加、删除或改名；请用实际评价替换示例值：\n"
+        + json.dumps(schema_example, ensure_ascii=False, indent=2)
+    )
     payload = {
         "job_title": request.job_title,
         "job_description": request.job_description,

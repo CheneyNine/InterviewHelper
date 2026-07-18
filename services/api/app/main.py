@@ -829,6 +829,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         result = aggregate(interview_id, active_settings.database_path)
         questions = list_questions(interview_id, active_settings.database_path)
         if len(result["question_analyses"]) < len(questions):
+            analyzed_question_ids = {item["question_id"] for item in result["question_analyses"]}
+            failed_answers = [
+                item for item in list_answers(interview_id, active_settings.database_path)
+                if item["status"] == "FAILED" and item["question_id"] not in analyzed_question_ids
+            ]
+            if failed_answers:
+                job = find_job_for_resource(failed_answers[-1]["id"], active_settings.database_path)
+                error = (job or {}).get("error") or {}
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "code": "ANSWER_ANALYSIS_FAILED",
+                        "message": error.get("message", "Answer analysis failed."),
+                    },
+                )
             raise HTTPException(status_code=409, detail={"code": "REPORT_NOT_READY"})
         report_request = {
             "interview_id": interview_id,
