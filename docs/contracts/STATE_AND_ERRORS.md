@@ -16,7 +16,7 @@ stateDiagram-v2
 
 - API 是唯一允许改变状态的模块。
 - `FAILED` 必须保留 `last_error`，重试后回到对应运行状态。
-- Web 不根据答案数量自行推断状态。
+- App 不根据答案数量自行推断状态。
 
 ## 2. Answer 状态
 

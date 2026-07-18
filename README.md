@@ -18,7 +18,7 @@ MVP 只实现一条完整链路：
 
 | 负责人 | 工作目录 | 计划文档 | 核心职责 |
 | --- | --- | --- | --- |
-| 1：Web | `apps/web/` | [`docs/teams/01-web/PLAN.md`](docs/teams/01-web/PLAN.md) | JD、录制流程、进度与报告 UI |
+| 1：移动端 App | `apps/mobile/` | [`docs/teams/01-mobile/PLAN.md`](docs/teams/01-mobile/PLAN.md) | JD、录制流程、进度与报告 UI |
 | 2：Core API | `services/api/` | [`docs/teams/02-api/PLAN.md`](docs/teams/02-api/PLAN.md) | 公共 API、数据库、文件、状态与编排 |
 | 3：Interviewer AI | `services/interviewer/` | [`docs/teams/03-interviewer-ai/PLAN.md`](docs/teams/03-interviewer-ai/PLAN.md) | 问题生成、回答内容评分与 Prompt |
 | 4：Multimodal | `workers/multimodal/` | [`docs/teams/04-multimodal/PLAN.md`](docs/teams/04-multimodal/PLAN.md) | 音视频特征、时间证据和表达建议 |
@@ -26,14 +26,15 @@ MVP 只实现一条完整链路：
 ## 开始开发前必读
 
 1. [`docs/architecture.md`](docs/architecture.md)：整体架构和模块边界。
-2. [`docs/contracts/API_CONTRACT.md`](docs/contracts/API_CONTRACT.md)：唯一接口真相源。
-3. [`docs/contracts/STATE_AND_ERRORS.md`](docs/contracts/STATE_AND_ERRORS.md)：状态机和错误约定。
-4. [`docs/integration/INTEGRATION.md`](docs/integration/INTEGRATION.md)：联调顺序和验收方法。
-5. [`docs/plans/2026-07-17-mvp-implementation.md`](docs/plans/2026-07-17-mvp-implementation.md)：总体实施计划。
+2. [`docs/teams/README.md`](docs/teams/README.md)：四人职责、交付物和依赖关系。
+3. [`docs/contracts/API_CONTRACT.md`](docs/contracts/API_CONTRACT.md)：唯一接口真相源。
+4. [`docs/contracts/STATE_AND_ERRORS.md`](docs/contracts/STATE_AND_ERRORS.md)：状态机和错误约定。
+5. [`docs/integration/INTEGRATION.md`](docs/integration/INTEGRATION.md)：联调顺序和验收方法。
+6. [`docs/plans/2026-07-17-mvp-implementation.md`](docs/plans/2026-07-17-mvp-implementation.md)：总体实施计划。
 
 ## 强制协作规则
 
-- Web 只能调用 Core API，不能直接调用模型服务。
+- App 只能调用 Core API，不能直接调用模型服务。
 - Core API 是数据库、ID、状态和原始文件地址的唯一所有者。
 - AI 两个模块不直接写业务数据库，只返回符合共享契约的 JSON。
 - 接口字段变更必须先改 `docs/contracts/`，由调用方和提供方共同审查。
@@ -46,7 +47,7 @@ MVP 只实现一条完整链路：
 初始化仓库后，每人从 `main` 建独立分支：
 
 ```text
-feat/web-interview-flow
+feat/mobile-interview-flow
 feat/api-session-orchestration
 feat/ai-question-evaluation
 feat/mm-audio-video-analysis

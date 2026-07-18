@@ -2,7 +2,9 @@
 
 ## 目标
 
-成为系统的唯一业务入口和编排层：保存状态与文件，调用两个 AI 模块，聚合稳定的 Public API。
+成为系统的唯一业务入口和编排层：保存状态与文件，执行业务规则，调用两个 AI 模块，聚合稳定的 Public API。Core API 的价值不是“把 App 请求转发给模型”，而是保证面试会话、答案、任务、文件和报告在失败与重试时仍然一致。
+
+详细职责见 [`CORE_API_GUIDE.md`](CORE_API_GUIDE.md)。
 
 ## 目录所有权
 
@@ -29,10 +31,10 @@
 
 ## 与其他模块的交互
 
-- 为 Web 提供稳定 Public API 和第一天可用 Stub。
+- 为 App 提供稳定 Public API 和第一天可用 Stub。
 - 调用 Interviewer AI 的两个 Internal API。
 - 调用 Multimodal 的一个 Internal API，只传受控媒体 URI。
-- AI 返回不合法 JSON 时转换为 `MODEL_BAD_RESPONSE`，不能将原始异常直接泄露给 Web。
+- AI 返回不合法 JSON 时转换为 `MODEL_BAD_RESPONSE`，不能将原始异常直接泄露给 App。
 
 ## 第一版交付顺序
 
@@ -50,3 +52,5 @@
 - 服务重启后已完成数据仍可查询。
 - 一个 AI 模块停机不会导致 API 进程崩溃。
 - 删除测试验证数据库记录和媒体都不可再访问。
+- App 断网重试不会产生重复 Interview 或 Answer。
+- 任意一个 AI 服务失败时，Core API 仍能查询原始会话并提供重试入口。

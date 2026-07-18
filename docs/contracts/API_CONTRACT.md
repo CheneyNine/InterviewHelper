@@ -73,7 +73,7 @@
 }
 ```
 
-## 3. Public API：Web 只调用这些接口
+## 3. Public API：Mobile App 只调用这些接口
 
 ### `POST /api/v1/interviews`
 
