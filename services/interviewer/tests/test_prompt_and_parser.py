@@ -34,3 +34,10 @@ def test_parse_json_object_accepts_fenced_json_and_ignores_surrounding_text():
 def test_parse_json_object_rejects_non_object():
     with pytest.raises(ModelClientError):
         parse_json_object("[1, 2, 3]")
+
+
+def test_parse_model_response_supports_responses_and_anthropic_shapes():
+    from app.model_client import _content_from_response
+
+    assert _content_from_response({"output_text": '{"questions": []}'}) == '{"questions": []}'
+    assert _content_from_response({"content": [{"type": "text", "text": '{"questions": []}'}]}) == '{"questions": []}'

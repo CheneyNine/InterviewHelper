@@ -21,6 +21,8 @@ class Settings:
     api_key: str
     api_url: str
     model: str
+    api_style: str = "auto"
+    assistant_id: str = ""
     timeout_seconds: float = 60.0
 
     @classmethod
@@ -31,6 +33,8 @@ class Settings:
             api_key=os.getenv("VAPI", "").strip(),
             api_url=os.getenv("URL", "").strip(),
             model=os.getenv("MODEL", "").strip(),
+            api_style=os.getenv("MODEL_API_STYLE", "auto").strip().lower(),
+            assistant_id=os.getenv("VAPI_ASSISTANT_ID", "").strip(),
             timeout_seconds=float(os.getenv("MODEL_TIMEOUT_SECONDS", "60")),
         )
 
@@ -49,10 +53,28 @@ class Settings:
 
     @property
     def chat_completions_url(self) -> str:
+        return self.endpoint_url("openai")
+
+    def resolved_api_style(self) -> str:
+        if self.api_style in {"openai", "responses", "anthropic"}:
+            return self.api_style
+        lowered = self.api_url.lower()
+        if lowered.endswith("/messages"):
+            return "anthropic"
+        if lowered.endswith("/responses"):
+            return "responses"
+        return "openai"
+
+    def endpoint_url(self, style: str | None = None) -> str:
         url = self.api_url.rstrip("/")
-        if url.endswith("/chat/completions"):
+        if url.endswith(("/chat/completions", "/responses", "/messages")):
             return url
-        return f"{url}/chat/completions"
+        path = "/chat/completions"
+        if style == "responses":
+            path = "/chat/responses"
+        elif style == "anthropic":
+            path = "/messages"
+        return f"{url}{path}"
 
     @property
     def authorization_header(self) -> str:

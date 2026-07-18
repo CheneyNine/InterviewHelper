@@ -19,10 +19,29 @@ class ModelClientError(RuntimeError):
 
 
 def _content_from_response(payload: dict[str, Any]) -> str:
+    # OpenAI Chat Completions and most compatible gateways.
     try:
         content = payload["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise ModelClientError("MODEL_BAD_RESPONSE", "Model response has no message content") from exc
+    except (KeyError, IndexError, TypeError):
+        content = None
+    if content is None and isinstance(payload.get("output_text"), str):
+        return payload["output_text"]
+    # OpenAI Responses and Vapi Chat Responses commonly expose output blocks.
+    if content is None and isinstance(payload.get("output"), list):
+        parts: list[str] = []
+        for output_item in payload["output"]:
+            if not isinstance(output_item, dict):
+                continue
+            for block in output_item.get("content", []):
+                if isinstance(block, dict) and isinstance(block.get("text"), str):
+                    parts.append(block["text"])
+        if parts:
+            return "".join(parts)
+    # Anthropic Messages returns content blocks at the top level.
+    if content is None and isinstance(payload.get("content"), list):
+        content = payload["content"]
+    if content is None:
+        raise ModelClientError("MODEL_BAD_RESPONSE", "Model response has no message content")
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -56,20 +75,34 @@ class OpenAICompatibleClient:
 
     async def _request(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
         self.settings.validate()
+        style = self.settings.resolved_api_style()
+        system_messages = [message["content"] for message in messages if message["role"] == "system"]
+        user_messages = [message for message in messages if message["role"] != "system"]
         payload: dict[str, Any] = {
             "model": self.settings.model,
-            "messages": messages,
             "temperature": 0.2,
         }
-        if json_mode:
+        if style == "anthropic":
+            payload["system"] = "\n\n".join(system_messages)
+            payload["messages"] = user_messages
+            payload["max_tokens"] = 2500
+        elif style == "responses":
+            payload["input"] = messages
+            if self.settings.assistant_id:
+                payload["assistantId"] = self.settings.assistant_id
+        else:
+            payload["messages"] = messages
+        if json_mode and style == "openai":
             payload["response_format"] = {"type": "json_object"}
-        headers = {
-            "Authorization": self.settings.authorization_header,
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        if style == "anthropic":
+            headers["x-api-key"] = self.settings.api_key
+            headers["anthropic-version"] = "2023-06-01"
+        else:
+            headers["Authorization"] = self.settings.authorization_header
         try:
             async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
-                response = await client.post(self.settings.chat_completions_url, headers=headers, json=payload)
+                response = await client.post(self.settings.endpoint_url(style), headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise ModelClientError("MODEL_TIMEOUT", "Model request timed out") from exc
         except httpx.HTTPError as exc:
@@ -77,7 +110,7 @@ class OpenAICompatibleClient:
         if response.status_code >= 500:
             raise ModelClientError("DEPENDENCY_UNAVAILABLE", "Model endpoint returned a server error", status_code=response.status_code)
         if response.status_code >= 400:
-            if json_mode and response.status_code in (400, 404, 422):
+            if json_mode and style == "openai" and response.status_code in (400, 404, 422):
                 return await self._request(messages, json_mode=False)
             raise ModelClientError("MODEL_REQUEST_REJECTED", "Model endpoint rejected the request", status_code=response.status_code)
         try:

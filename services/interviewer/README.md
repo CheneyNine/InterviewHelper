@@ -18,10 +18,12 @@ uvicorn app.main:app --reload --port 8001
 VAPI=your-bearer-token
 URL=https://your-openai-compatible-host/v1
 MODEL=your-model-name
+MODEL_API_STYLE=auto
+VAPI_ASSISTANT_ID=  # 只有 Vapi Chat Responses 需要时填写
 MODEL_TIMEOUT_SECONDS=60
 ```
 
-`URL` 可以是 API Base URL，也可以直接是完整的 `/chat/completions` URL。服务会自动补全路径。
+`URL` 可以是 API Base URL，也可以是完整的 `/chat/completions`、`/chat/responses` 或 `/messages` URL。`MODEL_API_STYLE` 支持 `auto`、`openai`、`responses`、`anthropic`；`auto` 会根据 URL 后缀判断。服务会自动补全路径。
 
 调用示例：
 
