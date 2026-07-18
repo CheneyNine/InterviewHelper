@@ -27,6 +27,8 @@ MODEL_API_STYLE=auto
 VAPI_ASSISTANT_ID=  # 只有 Vapi Chat Responses 需要时填写
 MODEL_TIMEOUT_SECONDS=120
 MODEL_FAILOVER_DELAY_SECONDS=15
+# Set true only when the model API must use HTTP_PROXY/HTTPS_PROXY.
+MODEL_TRUST_ENV=false
 
 # 可选：切换到 ECNU 多 Key 轮换模式
 MODEL_PROVIDER=ecnu

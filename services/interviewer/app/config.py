@@ -29,6 +29,7 @@ class Settings:
     assistant_id: str = ""
     timeout_seconds: float = 120.0
     failover_delay_seconds: float = 15.0
+    trust_env: bool = False
     provider: str = "default"
     ecnu_api_keys: tuple[str, ...] = ()
     ecnu_base_url: str = ""
@@ -57,6 +58,8 @@ class Settings:
             assistant_id=os.getenv("VAPI_ASSISTANT_ID", "").strip(),
             timeout_seconds=float(os.getenv("MODEL_TIMEOUT_SECONDS", "120")),
             failover_delay_seconds=float(os.getenv("MODEL_FAILOVER_DELAY_SECONDS", "15")),
+            trust_env=os.getenv("MODEL_TRUST_ENV", "false").strip().lower()
+            in {"1", "true", "yes", "on"},
             provider=os.getenv("MODEL_PROVIDER", "default").strip().lower(),
             ecnu_api_keys=ecnu_keys,
             ecnu_base_url=os.getenv("ECNU_BASE_URL", "").strip(),

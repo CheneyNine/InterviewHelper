@@ -115,7 +115,10 @@ class OpenAICompatibleClient:
             effective_key = api_key or self.settings.api_key
             headers["Authorization"] = effective_key if effective_key.lower().startswith("bearer ") else f"Bearer {effective_key}"
         try:
-            async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
+            async with httpx.AsyncClient(
+                timeout=self.settings.timeout_seconds,
+                trust_env=self.settings.trust_env,
+            ) as client:
                 response = await client.post(self.settings.endpoint_url(style, base_url), headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise ModelClientError("MODEL_TIMEOUT", "Model request timed out") from exc
@@ -178,7 +181,7 @@ class OpenAICompatibleClient:
                 await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _request_ecnu(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
-        """Try ECNU keys in order and rotate for key-specific or transient failures."""
+        """Try ECNU keys in order and rotate only for key-specific failures."""
         errors: list[ModelClientError] = []
         for index, api_key in enumerate(self.settings.ecnu_api_keys, start=1):
             try:
@@ -191,12 +194,11 @@ class OpenAICompatibleClient:
                 )
             except ModelClientError as exc:
                 errors.append(exc)
-                if exc.code not in {
-                    "MODEL_RATE_LIMITED",
-                    "MODEL_REQUEST_REJECTED",
-                    "DEPENDENCY_UNAVAILABLE",
-                    "MODEL_TIMEOUT",
-                }:
+                should_rotate = exc.code == "MODEL_RATE_LIMITED" or (
+                    exc.code == "MODEL_REQUEST_REJECTED"
+                    and exc.status_code in {401, 403}
+                )
+                if not should_rotate:
                     raise
         raise ModelClientError(
             errors[-1].code if errors else "DEPENDENCY_UNAVAILABLE",
