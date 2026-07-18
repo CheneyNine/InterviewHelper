@@ -20,3 +20,25 @@ def test_settings_support_primary_and_backup_urls(monkeypatch):
     settings = Settings.from_env()
     assert settings.api_urls == ("https://primary.test", "https://backup.test")
     assert settings.api_url == "https://primary.test"
+
+
+def test_settings_parse_named_multiline_ecnu_keys(monkeypatch):
+    monkeypatch.setenv("ECNU_API_KEYS", "main=key-one\nbackup=key-two")
+    monkeypatch.setenv("ECNU_BASE_URL", "https://ecnu.test/open/api/v1")
+    monkeypatch.setenv("ECNU_MODEL", "ecnu-reasoner")
+    settings = Settings.from_env()
+    assert settings.ecnu_api_keys == ("key-one", "key-two")
+    assert settings.ecnu_base_url.endswith("/open/api/v1")
+
+
+def test_ecnu_validation_does_not_require_vapi(monkeypatch):
+    settings = Settings(
+        api_key="",
+        api_url="",
+        model="",
+        provider="ecnu",
+        ecnu_api_keys=("key",),
+        ecnu_base_url="https://ecnu.test/open/api/v1",
+        ecnu_model="ecnu-reasoner",
+    )
+    settings.validate()

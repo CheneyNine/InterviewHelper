@@ -27,9 +27,21 @@ MODEL_API_STYLE=auto
 VAPI_ASSISTANT_ID=  # 只有 Vapi Chat Responses 需要时填写
 MODEL_TIMEOUT_SECONDS=120
 MODEL_FAILOVER_DELAY_SECONDS=15
+
+# 可选：切换到 ECNU 多 Key 轮换模式
+MODEL_PROVIDER=ecnu
+ECNU_API_KEYS="
+main=your-key-1
+backup-a=your-key-2
+backup-b=your-key-3
+"
+ECNU_BASE_URL=https://chat.ecnu.edu.cn/open/api/v1
+ECNU_MODEL=ecnu-reasoner
 ```
 
 优先使用 `URL1`，`URL1` 在 `MODEL_FAILOVER_DELAY_SECONDS` 内没有成功返回时启动 `URL2`；第一个返回合法结果的地址获胜。没有 `URL1/URL2` 时兼容旧的 `URL`。两个请求可能同时消耗模型额度，请根据供应商成本把延迟窗口调大。`URL` 可以是 API Base URL，也可以是完整的 `/chat/completions`、`/chat/responses` 或 `/messages` URL；若 OpenAI-compatible 网关只填写域名，服务会自动补全 `/v1/chat/completions`。
+
+当 `MODEL_PROVIDER=ecnu` 时，服务使用 `ECNU_BASE_URL` 和 `ECNU_MODEL`，按 `ECNU_API_KEYS` 中的顺序调用 Key；任一 Key 返回 HTTP 429 后立即切换下一个 Key。支持 JSON 数组、逗号分隔，或上面这种带名称的多行格式。所有 Key 都触发 429 时返回 `MODEL_RATE_LIMITED`。
 
 调用示例：
 

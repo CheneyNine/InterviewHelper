@@ -74,11 +74,17 @@ class OpenAICompatibleClient:
     def __init__(self, settings: Settings):
         self.settings = settings
 
+    @property
+    def active_model(self) -> str:
+        return self.settings.ecnu_model if self.settings.provider == "ecnu" else self.settings.model
+
     async def _request_once(
         self,
         messages: list[dict[str, str]],
         *,
         base_url: str,
+        api_key: str | None = None,
+        model: str | None = None,
         json_mode: bool = True,
     ) -> str:
         self.settings.validate()
@@ -86,7 +92,7 @@ class OpenAICompatibleClient:
         system_messages = [message["content"] for message in messages if message["role"] == "system"]
         user_messages = [message for message in messages if message["role"] != "system"]
         payload: dict[str, Any] = {
-            "model": self.settings.model,
+            "model": model or self.settings.model,
             "temperature": 0.2,
         }
         if style == "anthropic":
@@ -103,10 +109,11 @@ class OpenAICompatibleClient:
             payload["response_format"] = {"type": "json_object"}
         headers = {"Content-Type": "application/json"}
         if style == "anthropic":
-            headers["x-api-key"] = self.settings.api_key
+            headers["x-api-key"] = api_key or self.settings.api_key
             headers["anthropic-version"] = "2023-06-01"
         else:
-            headers["Authorization"] = self.settings.authorization_header
+            effective_key = api_key or self.settings.api_key
+            headers["Authorization"] = effective_key if effective_key.lower().startswith("bearer ") else f"Bearer {effective_key}"
         try:
             async with httpx.AsyncClient(timeout=self.settings.timeout_seconds) as client:
                 response = await client.post(self.settings.endpoint_url(style, base_url), headers=headers, json=payload)
@@ -116,6 +123,8 @@ class OpenAICompatibleClient:
             raise ModelClientError("DEPENDENCY_UNAVAILABLE", "Model endpoint is unavailable") from exc
         if response.status_code >= 500:
             raise ModelClientError("DEPENDENCY_UNAVAILABLE", "Model endpoint returned a server error", status_code=response.status_code)
+        if response.status_code == 429:
+            raise ModelClientError("MODEL_RATE_LIMITED", "Model endpoint rate limited the API key", status_code=429)
         if response.status_code >= 400:
             if json_mode and style == "openai" and response.status_code in (400, 404, 422):
                 return await self._request_once(messages, base_url=base_url, json_mode=False)
@@ -133,6 +142,8 @@ class OpenAICompatibleClient:
         successful response wins; pending requests are cancelled afterwards.
         """
         self.settings.validate()
+        if self.settings.provider == "ecnu":
+            return await self._request_ecnu(messages, json_mode=json_mode)
         urls = self.settings.api_urls or (self.settings.api_url,)
         tasks = {
             asyncio.create_task(
@@ -160,6 +171,28 @@ class OpenAICompatibleClient:
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def _request_ecnu(self, messages: list[dict[str, str]], *, json_mode: bool = True) -> str:
+        """Try ECNU keys in order and rotate immediately after HTTP 429."""
+        errors: list[ModelClientError] = []
+        for index, api_key in enumerate(self.settings.ecnu_api_keys, start=1):
+            try:
+                return await self._request_once(
+                    messages,
+                    base_url=self.settings.ecnu_base_url,
+                    api_key=api_key,
+                    model=self.settings.ecnu_model,
+                    json_mode=json_mode,
+                )
+            except ModelClientError as exc:
+                errors.append(exc)
+                if exc.code != "MODEL_RATE_LIMITED":
+                    raise
+        raise ModelClientError(
+            "MODEL_RATE_LIMITED",
+            f"All ECNU API keys are rate limited ({len(errors)} keys tried)",
+            status_code=429,
+        )
+
     async def _delayed_request(
         self,
         messages: list[dict[str, str]],
@@ -176,14 +209,14 @@ class OpenAICompatibleClient:
         messages = build_messages(request)
         raw = await self._request(messages)
         try:
-            parsed = GeneratedQuestionSet.model_validate({**parse_json_object(raw), "model": self.settings.model, "prompt_version": PROMPT_VERSION})
+            parsed = GeneratedQuestionSet.model_validate({**parse_json_object(raw), "model": self.active_model, "prompt_version": PROMPT_VERSION})
             self._validate_order_and_count(parsed, request.question_count)
             return parsed
         except Exception as first_error:
             repair_note = f"必须恰好返回 {request.question_count} 道题，且 order 必须从 1 到 {request.question_count} 连续递增；原始校验错误：{first_error}"
             repaired_raw = await self._request(build_messages(request, repair_note))
             try:
-                repaired = GeneratedQuestionSet.model_validate({**parse_json_object(repaired_raw), "model": self.settings.model, "prompt_version": PROMPT_VERSION})
+                repaired = GeneratedQuestionSet.model_validate({**parse_json_object(repaired_raw), "model": self.active_model, "prompt_version": PROMPT_VERSION})
                 self._validate_order_and_count(repaired, request.question_count)
                 return repaired
             except Exception as exc:

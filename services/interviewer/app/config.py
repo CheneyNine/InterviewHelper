@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import re
 from dataclasses import dataclass
 
 try:
@@ -26,6 +28,10 @@ class Settings:
     assistant_id: str = ""
     timeout_seconds: float = 120.0
     failover_delay_seconds: float = 15.0
+    provider: str = "default"
+    ecnu_api_keys: tuple[str, ...] = ()
+    ecnu_base_url: str = ""
+    ecnu_model: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -37,6 +43,7 @@ class Settings:
             os.getenv("URL", "").strip(),
         ]
         urls = tuple(dict.fromkeys(url for url in configured_urls if url))
+        ecnu_keys = _parse_api_keys(os.getenv("ECNU_API_KEYS", ""))
         return cls(
             api_key=os.getenv("VAPI", "").strip(),
             api_url=urls[0] if urls else "",
@@ -46,18 +53,33 @@ class Settings:
             assistant_id=os.getenv("VAPI_ASSISTANT_ID", "").strip(),
             timeout_seconds=float(os.getenv("MODEL_TIMEOUT_SECONDS", "120")),
             failover_delay_seconds=float(os.getenv("MODEL_FAILOVER_DELAY_SECONDS", "15")),
+            provider=os.getenv("MODEL_PROVIDER", "default").strip().lower(),
+            ecnu_api_keys=ecnu_keys,
+            ecnu_base_url=os.getenv("ECNU_BASE_URL", "").strip(),
+            ecnu_model=os.getenv("ECNU_MODEL", "").strip(),
         )
 
     def validate(self) -> None:
-        missing = [
-            name
-            for name, value in (
-                ("VAPI", self.api_key),
-                ("URL1/URL2", self.api_urls),
-                ("MODEL", self.model),
-            )
-            if not value
-        ]
+        if self.provider == "ecnu":
+            missing = [
+                name
+                for name, value in (
+                    ("ECNU_API_KEYS", self.ecnu_api_keys),
+                    ("ECNU_BASE_URL", self.ecnu_base_url),
+                    ("ECNU_MODEL", self.ecnu_model),
+                )
+                if not value
+            ]
+        else:
+            missing = [
+                name
+                for name, value in (
+                    ("VAPI", self.api_key),
+                    ("URL1/URL2", self.api_urls),
+                    ("MODEL", self.model),
+                )
+                if not value
+            ]
         if missing:
             raise RuntimeError(f"Missing model configuration: {', '.join(missing)}")
 
@@ -93,3 +115,28 @@ class Settings:
     @property
     def authorization_header(self) -> str:
         return self.api_key if self.api_key.lower().startswith("bearer ") else f"Bearer {self.api_key}"
+
+
+def _parse_api_keys(raw: str) -> tuple[str, ...]:
+    """Parse comma/newline/JSON or named multiline API key bundles."""
+    value = (raw or "").strip()
+    if not value:
+        return ()
+    value = value.strip('"').strip("'")
+    if value.startswith("["):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return tuple(str(item).strip() for item in parsed if str(item).strip())
+        except json.JSONDecodeError:
+            pass
+    keys: list[str] = []
+    for item in re.split(r"[,;\n]+", value):
+        item = item.strip().strip('"').strip("'")
+        if not item or item.startswith("#"):
+            continue
+        if "=" in item:
+            item = item.split("=", 1)[1].strip()
+        if item:
+            keys.append(item)
+    return tuple(dict.fromkeys(keys))

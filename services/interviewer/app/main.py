@@ -46,7 +46,7 @@ async def generate_question_set(
     try:
         result = await OpenAICompatibleClient(Settings.from_env()).generate_question_set(request)
     except ModelClientError as exc:
-        status = 504 if exc.code == "MODEL_TIMEOUT" else 502
+        status = 504 if exc.code == "MODEL_TIMEOUT" else 429 if exc.code == "MODEL_RATE_LIMITED" else 502
         raise HTTPException(
             status_code=status,
             detail={"code": exc.code, "message": str(exc), "request_id": request_id},
@@ -69,7 +69,7 @@ async def evaluate_content(
     try:
         result = await OpenAICompatibleClient(settings).evaluate_answer(request)
     except ModelClientError as exc:
-        status = 504 if exc.code == "MODEL_TIMEOUT" else 502
+        status = 504 if exc.code == "MODEL_TIMEOUT" else 429 if exc.code == "MODEL_RATE_LIMITED" else 502
         raise HTTPException(
             status_code=status,
             detail={"code": exc.code, "message": str(exc), "request_id": request_id},
@@ -81,7 +81,7 @@ async def evaluate_content(
         ) from exc
     return {
         **result.model_dump(),
-        "model": settings.model,
+        "model": OpenAICompatibleClient(settings).active_model,
         "prompt_version": EVALUATION_PROMPT_VERSION,
         "request_id": request_id,
     }
