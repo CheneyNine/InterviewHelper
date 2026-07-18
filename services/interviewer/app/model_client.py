@@ -8,8 +8,8 @@ from typing import Any
 import httpx
 
 from .config import Settings
-from .prompt import EVALUATION_PROMPT_VERSION, PROMPT_VERSION, build_evaluation_messages, build_messages
-from .schemas import AnswerEvaluation, AnswerEvaluationRequest, GeneratedQuestionSet, QuestionGenerationRequest
+from .prompt import EVALUATION_PROMPT_VERSION, PROMPT_VERSION, REPORT_PROMPT_VERSION, build_evaluation_messages, build_messages, build_report_messages
+from .schemas import AnswerEvaluation, AnswerEvaluationRequest, GeneratedQuestionSet, InterviewReportDraft, InterviewReportGenerationRequest, QuestionGenerationRequest
 
 
 class ModelClientError(RuntimeError):
@@ -236,6 +236,18 @@ class OpenAICompatibleClient:
                 return AnswerEvaluation.model_validate(parse_json_object(repaired_raw))
             except Exception as exc:
                 raise ModelClientError("MODEL_BAD_RESPONSE", "Evaluation output failed schema validation after one repair attempt") from exc
+
+    async def generate_report(self, request: InterviewReportGenerationRequest) -> InterviewReportDraft:
+        raw = await self._request(build_report_messages(request))
+        try:
+            return InterviewReportDraft.model_validate(parse_json_object(raw))
+        except Exception as first_error:
+            repair_note = f"必须返回完整报告字段；原始校验错误：{first_error}"
+            repaired_raw = await self._request(build_report_messages(request, repair_note))
+            try:
+                return InterviewReportDraft.model_validate(parse_json_object(repaired_raw))
+            except Exception as exc:
+                raise ModelClientError("MODEL_BAD_RESPONSE", "Report output failed schema validation after one repair attempt") from exc
 
     @staticmethod
     def _validate_order_and_count(question_set: GeneratedQuestionSet, expected_count: int) -> None:

@@ -143,3 +143,43 @@ class AnswerEvaluation(BaseModel):
     evidence: list[str] = Field(..., min_length=1, max_length=10)
     limitations: list[str] = Field(default_factory=list, max_length=6)
     disclaimer: str = "这是基于题目、回答文本和可观察表现的训练反馈，不是心理、医学或招聘结论。"
+
+
+class QuestionAnalysisSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_order: int = Field(..., ge=1)
+    question_id: str = Field(..., min_length=1, max_length=100)
+    answer_id: str = Field(..., min_length=1, max_length=100)
+    question: str = Field(..., min_length=8, max_length=500)
+    overall_score: float | None = Field(default=None, ge=0, le=1)
+    content_score: float | None = Field(default=None, ge=0, le=1)
+    delivery_score: float | None = Field(default=None, ge=0, le=1)
+    strengths: list[str] = Field(default_factory=list, max_length=8)
+    improvements: list[str] = Field(default_factory=list, max_length=8)
+    evidence: list[str] = Field(default_factory=list, max_length=10)
+    limitations: list[str] = Field(default_factory=list, max_length=6)
+
+
+class InterviewReportGenerationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str | None = None
+    interview_id: str = Field(..., min_length=1, max_length=100)
+    job_title: str = Field(..., min_length=1, max_length=200)
+    interview_stage: str = Field(..., min_length=2, max_length=40)
+    question_analyses: list[QuestionAnalysisSummary] = Field(..., min_length=1, max_length=20)
+    aggregate_scores: dict[str, float | None] = Field(default_factory=dict)
+    locale: str = Field(default="zh-CN", min_length=2, max_length=20)
+
+
+class InterviewReportDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(..., min_length=8, max_length=1000)
+    strengths: list[str] = Field(..., min_length=1, max_length=8)
+    priority_improvements: list[str] = Field(..., min_length=1, max_length=8)
+    cross_question_patterns: list[str] = Field(default_factory=list, max_length=8)
+    practice_plan: list[str] = Field(..., min_length=1, max_length=8)
+    limitations: list[str] = Field(default_factory=list, max_length=8)
+    disclaimer: str = "这些结果是训练建议，不是心理、医学或招聘结论。"

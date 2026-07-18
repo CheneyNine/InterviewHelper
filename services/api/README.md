@@ -1,18 +1,29 @@
-# Core API
+# Core API MVP
 
-负责人 2 的工作区。开始前阅读 [`../../docs/teams/02-api/PLAN.md`](../../docs/teams/02-api/PLAN.md) 和 [`../../docs/contracts/API_CONTRACT.md`](../../docs/contracts/API_CONTRACT.md)。
+该服务负责 Public API、Job 状态、题目/回答/分析结果保存和两个 AI 服务的编排。
 
-该服务是状态、ID、数据库和媒体位置的唯一所有者。
-
-问题生成联调入口必须是：
-
-```text
-Desktop App
-  -> POST /api/v1/interviews
-Core API
-  -> POST {INTERVIEWER_BASE_URL}/internal/v1/question-sets:generate
-Interviewer AI
-  -> Prompt + model provider
+```bash
+cd services/api
+pip install -r requirements.txt
+INTERVIEWER_BASE_URL=http://127.0.0.1:8001 \
+  uvicorn app.main:app --reload --port 8000
 ```
 
-`POST /api/v1/interviews` 必须接收并保存 `job_title`、`job_description`、`job_requirements`、`interview_stage`、`question_count` 和 `locale`，再由 Core API 生成 `request_id`/`X-Request-ID` 调用 Interviewer。禁止 Desktop App 直接调用 Interviewer 的 Internal API。
+Public API：
+
+```text
+POST /api/v1/interviews
+GET  /api/v1/interviews/{interview_id}
+GET  /api/v1/jobs/{job_id}
+POST /api/v1/questions/{question_id}/answers
+GET  /api/v1/answers/{answer_id}/analysis
+GET  /api/v1/interviews/{interview_id}/report
+```
+
+VLM 完成报告后，将单题 JSON 送入以下内部适配接口；Core API 会自动映射逐字稿、语音/视频证据和限制，再调用 Interviewer 单题评估：
+
+```text
+POST /internal/v1/reports:ingest
+```
+
+这是 MVP 的内存实现，重启会丢失 Interview、Job 和分析结果；接入数据库和对象存储前只用于联调。
