@@ -24,15 +24,15 @@ async def generate_question_set(
     request_id = x_request_id or str(uuid.uuid4())
     try:
         result = await OpenAICompatibleClient(Settings.from_env()).generate_question_set(request)
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail={"code": "MODEL_CONFIG_ERROR", "message": str(exc), "request_id": request_id},
-        ) from exc
     except ModelClientError as exc:
         status = 504 if exc.code == "MODEL_TIMEOUT" else 502
         raise HTTPException(
             status_code=status,
             detail={"code": exc.code, "message": str(exc), "request_id": request_id},
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "MODEL_CONFIG_ERROR", "message": str(exc), "request_id": request_id},
         ) from exc
     return {**result.model_dump(), "request_id": request_id}

@@ -69,11 +69,15 @@ class Settings:
         url = self.api_url.rstrip("/")
         if url.endswith(("/chat/completions", "/responses", "/messages")):
             return url
-        path = "/chat/completions"
+        # Most OpenAI-compatible gateways use /v1 when only a host is supplied;
+        # Vapi's Chat Responses endpoint is the notable exception.
+        has_path = "/" in url.removeprefix("https://").removeprefix("http://")
+        prefix = "" if has_path else "/v1"
+        path = f"{prefix}/chat/completions"
         if style == "responses":
             path = "/chat/responses"
         elif style == "anthropic":
-            path = "/messages"
+            path = f"{prefix}/messages"
         return f"{url}{path}"
 
     @property
