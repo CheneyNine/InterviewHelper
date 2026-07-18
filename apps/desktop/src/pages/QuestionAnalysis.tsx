@@ -9,6 +9,10 @@ const dimensionLabels: Record<string, string> = {
   specificity: "具体程度",
   structure: "结构表达",
   impact: "结果影响",
+  visible_expression: "神情与镜头表现",
+  content_and_fluency: "回答内容与流畅程度",
+  tone_and_voice: "语气与声音表现",
+  answer_structure: "回答结构与题目呈现",
 };
 
 function ScoreRing({ score }: { score: number | null }) {
@@ -55,10 +59,21 @@ export function QuestionAnalysisPage() {
 
       <div className="analysis-grid">
         <section className="analysis-section dimension-section">
-          <h2>内容维度</h2>
-          {Object.entries(analysis.content.dimensions).map(([key, value]) => (
-            <div className="dimension-row" key={key}><span>{dimensionLabels[key] ?? key}</span><div><i style={{ width: `${(value ?? 0) * 100}%` }} /></div><strong>{value === null ? "—" : Math.round(value * 100)}</strong></div>
+          <h2>四维度表现</h2>
+          {(analysis.content.dimension_analysis?.length ? analysis.content.dimension_analysis : Object.entries(analysis.content.dimensions).map(([key, score]) => ({ key, title: dimensionLabels[key] ?? key, score, summary: "", evidence: [], suggestions: [], limitations: [] }))).map((item) => (
+            <div key={item.key} className="dimension-card">
+              <div className="dimension-row"><span>{dimensionLabels[item.key] ?? item.title}</span><div><i style={{ width: `${(item.score ?? 0) * 100}%` }} /></div><strong>{item.score === null ? "—" : Math.round((item.score ?? 0) * 100)}</strong></div>
+              {item.summary && <p>{item.summary}</p>}
+              {item.suggestions?.map((suggestion) => <small key={suggestion}>建议：{suggestion}</small>)}
+            </div>
           ))}
+        </section>
+
+        <section className="analysis-section answer-comparison-section">
+          <h2>题目与回答对照</h2>
+          <div className="answer-copy-block"><strong>参考答题思路</strong><p>{analysis.reference_answer?.positioning ?? "暂无参考答案"}</p>{analysis.reference_answer?.answer_outline?.map((item) => <span key={item}>{item}</span>)}</div>
+          <div className="answer-copy-block"><strong>实际转写回答</strong><p>{analysis.actual_answer || analysis.transcript.text || "未识别到清晰回答"}</p></div>
+          {analysis.content.reference_comparison && <div className="answer-copy-block"><strong>对照建议</strong><p>{String(analysis.content.reference_comparison.comparison_summary ?? "")}</p></div>}
         </section>
 
         <section className="analysis-section">

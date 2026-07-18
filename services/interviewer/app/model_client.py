@@ -8,8 +8,8 @@ from typing import Any
 import httpx
 
 from .config import Settings
-from .prompt import EVALUATION_PROMPT_VERSION, PROMPT_VERSION, REPORT_PROMPT_VERSION, build_evaluation_messages, build_messages, build_report_messages
-from .schemas import AnswerEvaluation, AnswerEvaluationRequest, GeneratedQuestionSet, InterviewReportDraft, InterviewReportGenerationRequest, QuestionGenerationRequest
+from .prompt import COMPARISON_PROMPT_VERSION, EVALUATION_PROMPT_VERSION, PROMPT_VERSION, REPORT_PROMPT_VERSION, TRANSCRIPT_PROMPT_VERSION, build_comparison_messages, build_evaluation_messages, build_messages, build_report_messages, build_transcript_messages
+from .schemas import AnswerEvaluation, AnswerEvaluationRequest, GeneratedQuestionSet, InterviewReportDraft, InterviewReportGenerationRequest, QuestionGenerationRequest, ReferenceComparison, ReferenceComparisonRequest, TranscriptEvaluation, TranscriptEvaluationRequest
 
 
 class ModelClientError(RuntimeError):
@@ -261,6 +261,28 @@ class OpenAICompatibleClient:
                 return InterviewReportDraft.model_validate(parse_json_object(repaired_raw))
             except Exception as exc:
                 raise ModelClientError("MODEL_BAD_RESPONSE", "Report output failed schema validation after one repair attempt") from exc
+
+    async def evaluate_transcript(self, request: TranscriptEvaluationRequest) -> TranscriptEvaluation:
+        raw = await self._request(build_transcript_messages(request))
+        try:
+            return TranscriptEvaluation.model_validate(parse_json_object(raw))
+        except Exception as first_error:
+            repaired = await self._request(build_transcript_messages(request, f"必须返回完整字段；原始错误：{first_error}"))
+            try:
+                return TranscriptEvaluation.model_validate(parse_json_object(repaired))
+            except Exception as exc:
+                raise ModelClientError("MODEL_BAD_RESPONSE", "Transcript evaluation failed schema validation") from exc
+
+    async def compare_reference(self, request: ReferenceComparisonRequest) -> ReferenceComparison:
+        raw = await self._request(build_comparison_messages(request))
+        try:
+            return ReferenceComparison.model_validate(parse_json_object(raw))
+        except Exception as first_error:
+            repaired = await self._request(build_comparison_messages(request, f"必须返回完整字段；原始错误：{first_error}"))
+            try:
+                return ReferenceComparison.model_validate(parse_json_object(repaired))
+            except Exception as exc:
+                raise ModelClientError("MODEL_BAD_RESPONSE", "Reference comparison failed schema validation") from exc
 
     @staticmethod
     def _validate_order_and_count(question_set: GeneratedQuestionSet, expected_count: int) -> None:

@@ -343,6 +343,19 @@ def report_to_multimodal(report: dict[str, Any]) -> dict[str, Any]:
         "voice_delivery_description": tone.get("summary") or delivery.get("summary"),
         "metrics": metrics,
         "observations": observations,
+        "dimension_analysis": [
+            {
+                "key": key,
+                "title": item.get("title", key),
+                "score": item.get("score"),
+                "summary": item.get("summary", ""),
+                "evidence": item.get("evidence", []),
+                "suggestions": item.get("suggestions", []),
+                "limitations": item.get("limitations", []),
+            }
+            for key, item in dimensions.items()
+            if key in {"visible_expression", "content_and_fluency", "tone_and_voice", "answer_structure"}
+        ],
         "limitations": [str(item) for item in limitations if item],
     }
 
@@ -376,6 +389,7 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
         else content_score * 0.7 + delivery_score * 0.3
     )
     summaries = []
+    dimension_buckets: dict[str, list[float]] = {key: [] for key in ("visible_expression", "content_and_fluency", "tone_and_voice", "answer_structure")}
     for item in analyses:
         evaluation = item["evaluation"]
         question = get_question(item["question_id"], path)
@@ -394,15 +408,26 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
                 "improvements": evaluation.get("improvements", []),
                 "evidence": evaluation.get("evidence", []),
                 "limitations": evaluation.get("limitations", []),
+                "dimension_analysis": evaluation.get("dimension_analysis", []),
             }
         )
+        for dimension in evaluation.get("dimension_analysis", []):
+            key, score = dimension.get("key"), dimension.get("score")
+            if key in dimension_buckets and isinstance(score, (int, float)):
+                dimension_buckets[key].append(float(score))
+    aggregate_scores = {
+        "overall_score": overall,
+        "content_score": content_score,
+        "delivery_score": delivery_score,
+    }
+    if analyses:
+        aggregate_scores.update({
+            f"dimension_{key}": (sum(values) / len(values) if values else None)
+            for key, values in dimension_buckets.items()
+        })
     return {
         "question_analyses": sorted(summaries, key=lambda item: item["question_order"]),
-        "aggregate_scores": {
-            "overall_score": overall,
-            "content_score": content_score,
-            "delivery_score": delivery_score,
-        },
+        "aggregate_scores": aggregate_scores,
     }
 
 
@@ -453,12 +478,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             },
             request_id,
         )
+        transcript_request = {
+            "request_id": request_id,
+            "job_title": interview["job_title"],
+            "question_prompt": question["prompt"],
+            "answer_text": multimodal["answer_text"],
+            "locale": interview["locale"],
+        }
+        comparison_request = {
+            "request_id": request_id,
+            "job_title": interview["job_title"],
+            "question": question_payload,
+            "answer_text": multimodal["answer_text"],
+            "locale": interview["locale"],
+        }
+        transcript_evaluation, reference_comparison = await asyncio.gather(
+            interviewer_post(active_settings, "/internal/v1/transcript-evaluations", transcript_request, request_id),
+            interviewer_post(active_settings, "/internal/v1/reference-comparisons", comparison_request, request_id),
+            return_exceptions=True,
+        )
         analysis = {
             "answer_id": answer_id,
             "question_id": answer["question_id"],
             "raw_multimodal_report": report,
             "multimodal": multimodal,
             "evaluation": evaluation,
+            "transcript_evaluation": transcript_evaluation if isinstance(transcript_evaluation, dict) else None,
+            "reference_comparison": reference_comparison if isinstance(reference_comparison, dict) else None,
+            "analysis_limitations": [
+                str(item) for item in (transcript_evaluation, reference_comparison)
+                if isinstance(item, Exception)
+            ],
         }
         save_analysis(answer_id, analysis, active_settings.database_path)
         update_answer_status(answer_id, "COMPLETED", active_settings.database_path)
@@ -734,6 +784,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ]
         return {
             "answer_id": answer_id,
+            "question": get_question(analysis["question_id"], active_settings.database_path),
+            "reference_answer": (get_question(analysis["question_id"], active_settings.database_path) or {}).get("reference_answer"),
+            "actual_answer": raw.get("transcript", {}).get("text", ""),
             "transcript": raw.get(
                 "transcript", {"text": "", "language": "zh-CN", "segments": []}
             ),
@@ -743,6 +796,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "strengths": evaluation.get("strengths", []),
                 "improvements": evaluation.get("improvements", []),
                 "evidence": evidence,
+                "dimension_analysis": evaluation.get("dimension_analysis") or analysis["multimodal"].get("dimension_analysis", []),
+                "transcript_evaluation": analysis.get("transcript_evaluation"),
+                "reference_comparison": analysis.get("reference_comparison"),
             },
             "delivery": raw.get(
                 "delivery",
@@ -793,6 +849,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "completed_count": len(result["question_analyses"]),
             **result["aggregate_scores"],
             **draft,
+            "dimension_scores": {
+                key.removeprefix("dimension_"): value
+                for key, value in result["aggregate_scores"].items()
+                if key.startswith("dimension_")
+            },
             "overall_content_score": result["aggregate_scores"]["content_score"],
             "top_strengths": draft.get("strengths", []),
             "answer_analyses": answer_analyses,

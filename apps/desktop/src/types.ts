@@ -101,7 +101,21 @@ export interface AnswerAnalysis {
     strengths: string[];
     improvements: string[];
     evidence: Array<{ claim: string; quote: string }>;
+    dimension_analysis?: Array<{
+      key: string;
+      title: string;
+      score: number | null;
+      summary: string;
+      evidence: string[];
+      suggestions: string[];
+      limitations: string[];
+    }>;
+    transcript_evaluation?: Record<string, unknown> | null;
+    reference_comparison?: Record<string, unknown> | null;
   };
+  question?: Question;
+  reference_answer?: Question["reference_answer"];
+  actual_answer?: string;
   delivery: {
     metrics: Record<string, number | null>;
     observations: Array<{
@@ -124,6 +138,7 @@ export interface InterviewReport {
   priority_improvements: string[];
   answer_analyses: Array<{ question_id: string; answer_id: string; analysis_url: string }>;
   disclaimer: string;
+  dimension_scores?: Record<string, number | null>;
 }
 
 export interface ApiErrorShape {

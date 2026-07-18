@@ -7,8 +7,8 @@ from fastapi.responses import HTMLResponse
 
 from .config import Settings
 from .model_client import ModelClientError, OpenAICompatibleClient
-from .prompt import EVALUATION_PROMPT_VERSION, REPORT_PROMPT_VERSION
-from .schemas import AnswerEvaluationRequest, InterviewReportGenerationRequest, QuestionGenerationRequest
+from .prompt import COMPARISON_PROMPT_VERSION, EVALUATION_PROMPT_VERSION, REPORT_PROMPT_VERSION, TRANSCRIPT_PROMPT_VERSION
+from .schemas import AnswerEvaluationRequest, InterviewReportGenerationRequest, QuestionGenerationRequest, ReferenceComparisonRequest, TranscriptEvaluationRequest
 
 app = FastAPI(title="InterviewHelper Interviewer AI", version="1.0.0")
 
@@ -107,3 +107,33 @@ async def generate_interview_report(
         "prompt_version": REPORT_PROMPT_VERSION,
         "request_id": request_id,
     }
+
+
+@app.post("/internal/v1/transcript-evaluations")
+async def evaluate_transcript(
+    request: TranscriptEvaluationRequest,
+    x_request_id: str | None = Header(default=None),
+) -> dict:
+    request_id = x_request_id or request.request_id or str(uuid.uuid4())
+    settings = Settings.from_env()
+    try:
+        result = await OpenAICompatibleClient(settings).evaluate_transcript(request)
+    except ModelClientError as exc:
+        status = 504 if exc.code == "MODEL_TIMEOUT" else 429 if exc.code == "MODEL_RATE_LIMITED" else 502
+        raise HTTPException(status_code=status, detail={"code": exc.code, "message": str(exc), "request_id": request_id}) from exc
+    return {**result.model_dump(), "model": OpenAICompatibleClient(settings).active_model, "prompt_version": TRANSCRIPT_PROMPT_VERSION, "request_id": request_id}
+
+
+@app.post("/internal/v1/reference-comparisons")
+async def compare_reference(
+    request: ReferenceComparisonRequest,
+    x_request_id: str | None = Header(default=None),
+) -> dict:
+    request_id = x_request_id or request.request_id or str(uuid.uuid4())
+    settings = Settings.from_env()
+    try:
+        result = await OpenAICompatibleClient(settings).compare_reference(request)
+    except ModelClientError as exc:
+        status = 504 if exc.code == "MODEL_TIMEOUT" else 429 if exc.code == "MODEL_RATE_LIMITED" else 502
+        raise HTTPException(status_code=status, detail={"code": exc.code, "message": str(exc), "request_id": request_id}) from exc
+    return {**result.model_dump(), "model": OpenAICompatibleClient(settings).active_model, "prompt_version": COMPARISON_PROMPT_VERSION, "request_id": request_id}

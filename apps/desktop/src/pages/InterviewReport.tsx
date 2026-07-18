@@ -40,6 +40,7 @@ export function InterviewReportPage() {
   }
 
   const score = activeReport.overall_content_score === null ? null : Math.round(activeReport.overall_content_score * 100);
+  const dimensionLabels: Record<string, string> = { visible_expression: "神情与镜头表现", content_and_fluency: "回答内容与流畅程度", tone_and_voice: "语气与声音表现", answer_structure: "回答结构与题目呈现" };
 
   return (
     <div className="report-page">
@@ -52,6 +53,8 @@ export function InterviewReportPage() {
         <div className="report-list strengths"><h2><Check size={19} />你的优势</h2>{activeReport.top_strengths.map((item) => <p key={item}>{item}</p>)}</div>
         <div className="report-list priorities"><h2><Flag size={19} />优先训练</h2>{activeReport.priority_improvements.map((item, index) => <p key={item}><span>{index + 1}</span>{item}</p>)}</div>
       </section>
+
+      {activeReport.dimension_scores && <section className="report-band report-dimensions"><div className="report-list"><h2>四维度总览</h2>{Object.entries(dimensionLabels).map(([key, label]) => { const value = activeReport.dimension_scores?.[key]; return <p key={key}><span>{label}</span><strong>{value == null ? "—" : `${Math.round(value * 100)}分`}</strong></p>; })}</div></section>}
 
       <section className="answer-review">
         <div className="section-title"><div><span>逐题回顾</span><h2>点击题目查看对应分析</h2></div><strong>{activeReport.answer_analyses.length}/{questions.length} 已分析</strong></div>
