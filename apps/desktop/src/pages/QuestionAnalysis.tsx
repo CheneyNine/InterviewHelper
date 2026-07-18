@@ -62,7 +62,7 @@ export function QuestionAnalysisPage() {
 
       <div className="analysis-grid">
         <section className="analysis-section dimension-section">
-          <h2>四维度表现</h2>
+          <h2>八维度表现</h2>
           {(analysis.content.dimension_analysis?.length ? analysis.content.dimension_analysis : Object.entries(analysis.content.dimension_scores).map(([key, score]) => ({ key, title: dimensionLabels[key] ?? key, score, summary: "", evidence: [], suggestions: [], limitations: [] }))).map((item) => (
             <div key={item.key} className="dimension-card">
               <div className="dimension-row"><span>{dimensionLabels[item.key] ?? item.title}</span><div><i style={{ width: `${(item.score ?? 0) * 100}%` }} /></div><strong>{item.score === null ? "—" : Math.round((item.score ?? 0) * 100)}</strong></div>
