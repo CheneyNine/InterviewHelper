@@ -159,6 +159,7 @@ textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107,
 .dimension-row > div { height: 6px; background: #e8ede9; border-radius: 4px; overflow: hidden; }
 .dimension-row i { display: block; height: 100%; background: var(--green); }
 .dimension-row strong { text-align: right; }
+.delivery-overview-section { grid-column: 1 / -1; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .metric-grid > div { display: flex; flex-direction: column; padding: 8px 16px; border-left: 1px solid var(--line); }
 .metric-grid > div:first-child { border-left: 0; padding-left: 0; }
@@ -174,7 +175,8 @@ textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107,
 .transcript-section { grid-column: 1 / -1; }
 .transcript-section h2 { display: flex; gap: 8px; }
 .transcript-section blockquote { margin: 0 0 16px; padding: 14px 18px; border-left: 3px solid var(--green); background: #f4f7f4; color: #455049; font-size: 13px; line-height: 1.7; }
-.evidence { display: flex; gap: 16px; font-size: 11px; }
+.evidence { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; font-size: 11px; }
+.evidence-single { grid-template-columns: 1fr; }
 .evidence span { color: var(--muted); }
 .analysis-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; }
 .analysis-footer > span { color: var(--muted); font-size: 11px; }
@@ -193,6 +195,25 @@ textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107,
 .report-list.strengths p::before { content: ""; position: absolute; left: 2px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .report-list.priorities p { display: flex; gap: 10px; padding: 0; align-items: center; }
 .report-list.priorities p span { display: grid; place-items: center; width: 20px; height: 20px; background: #fdebdc; color: #945b22; border-radius: 4px; font-size: 10px; }
+.report-dimensions { display: block; padding: 30px 0 32px; }
+.radar-section { width: 100%; min-width: 0; }
+.radar-heading span { color: var(--green); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.radar-heading h2 { margin: 5px 0 0; font-size: 20px; }
+.radar-layout { display: grid; grid-template-columns: minmax(430px, 1.25fr) minmax(270px, 0.75fr); gap: 40px; align-items: center; margin-top: 12px; }
+.radar-chart { display: block; width: 100%; max-width: 560px; aspect-ratio: 520 / 430; overflow: visible; }
+.radar-grid { fill: none; stroke: #d7dfda; stroke-width: 1; }
+.radar-grid:nth-of-type(5) { stroke: #aebbb4; }
+.radar-axis { stroke: #d7dfda; stroke-width: 1; }
+.radar-area { fill: rgba(31, 122, 90, 0.2); stroke: var(--green); stroke-width: 2.5; stroke-linejoin: round; }
+.radar-point { fill: #d06c3b; stroke: #fff; stroke-width: 2; }
+.radar-point-zero { stroke-width: 1.5; }
+.radar-label { fill: #4f5c55; font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.radar-legend { display: grid; border-left: 1px solid var(--line); padding-left: 30px; }
+.radar-legend-row { min-height: 40px; display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; border-bottom: 1px solid #e5e9e6; font-size: 12px; }
+.radar-legend-row:last-child { border-bottom: 0; }
+.radar-legend-marker { width: 7px; height: 7px; background: var(--green); transform: rotate(45deg); }
+.radar-legend-row strong { color: var(--ink); font-size: 13px; }
+.radar-legend-row strong.is-unavailable { color: var(--muted); font-weight: 500; }
 .answer-review { margin-top: 38px; }
 .section-title { display: flex; justify-content: space-between; align-items: end; margin-bottom: 14px; }
 .section-title span { color: var(--green); text-transform: uppercase; font-size: 10px; font-weight: 700; }
@@ -216,4 +237,10 @@ textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107,
   .interview-layout { grid-template-columns: 250px minmax(0, 1fr); }
   .interview-main { padding: 22px; }
   .steps span { display: none; }
+}
+
+@media (max-width: 860px) {
+  .radar-layout { grid-template-columns: 1fr; gap: 6px; }
+  .radar-chart { max-width: 520px; margin: 0 auto; }
+  .radar-legend { grid-template-columns: 1fr 1fr; gap: 0 24px; border-left: 0; border-top: 1px solid var(--line); padding: 12px 0 0; }
 }

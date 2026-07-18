@@ -18,6 +18,12 @@ const dimensionLabels: Record<string, string> = {
   role_fit: "岗位匹配度与业务理解",
 };
 
+function normalizeEvidenceText(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[\s"'“”‘’。，、；：！？,.!?;:]/g, "");
+}
 function ScoreRing({ score }: { score: number | null }) {
   const value = score === null ? 0 : Math.round(score * 100);
   return <div className="score-ring" style={{ "--score": `${value * 3.6}deg` } as React.CSSProperties}><strong>{score === null ? "—" : value}</strong><span>综合得分</span></div>;
@@ -79,7 +85,7 @@ export function QuestionAnalysisPage() {
           {analysis.content.reference_comparison && <div className="answer-copy-block"><strong>对照建议</strong><p>{String(analysis.content.reference_comparison.comparison_summary ?? "")}</p></div>}
         </section>
 
-        <section className="analysis-section">
+        <section className="analysis-section delivery-overview-section">
           <h2>表达概览</h2>
           <div className="metric-grid">
             <div><strong>{analysis.delivery.metrics.words_per_minute ?? "—"}</strong><span>字/分钟</span></div>
@@ -97,7 +103,15 @@ export function QuestionAnalysisPage() {
         <section className="analysis-section transcript-section">
           <h2><MessageSquareQuote size={18} />转写与证据</h2>
           <blockquote>“{analysis.transcript.text}”</blockquote>
-          {analysis.content.evidence.map((item) => <div className="evidence" key={item.claim}><strong>{item.claim}</strong><span>“{item.quote}”</span></div>)}
+          {analysis.content.evidence.map((item) => {
+            const showQuote = normalizeEvidenceText(item.claim) !== normalizeEvidenceText(item.quote);
+            return (
+              <div className={showQuote ? "evidence" : "evidence evidence-single"} key={item.claim + item.quote}>
+                <strong>{item.claim}</strong>
+                {showQuote && <span>“{item.quote}”</span>}
+              </div>
+            );
+          })}
         </section>
       </div>
       <div className="analysis-footer"><span>这些反馈是训练建议，不是招聘结论。</span><button className="button button-primary" onClick={backToReport}>返回整场报告</button></div>
