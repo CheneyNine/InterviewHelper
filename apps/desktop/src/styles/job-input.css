@@ -1,0 +1,13 @@
+.field-block { margin-bottom: 18px; }
+.text-input { width: 100%; height: 44px; border: 1px solid #ccd4cd; border-radius: 6px; background: white; color: var(--ink); padding: 0 14px; outline: none; }
+.text-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23, 107, 77, .11); }
+.textarea-compact { min-height: 128px; }
+.field-block .field-footer { margin-bottom: 0; }
+.input-options { display: grid; grid-template-columns: 1fr 92px; gap: 16px; margin: 4px 0 22px; align-items: end; }
+.stage-control > span, .count-control > span { display: block; font-size: 12px; font-weight: 650; margin-bottom: 8px; }
+.segmented-control { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: white; }
+.segmented-control button { height: 38px; border: 0; border-left: 1px solid var(--line); background: white; color: var(--muted); font-size: 11px; padding: 0 5px; }
+.segmented-control button:first-child { border-left: 0; }
+.segmented-control button.selected { background: var(--green); color: white; }
+.count-control input { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; background: white; }
+.question-purpose { color: var(--muted); font-size: 12px; line-height: 1.55; margin: -4px 0 13px; }

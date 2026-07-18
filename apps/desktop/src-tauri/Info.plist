@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>InterviewHelper 使用摄像头录制模拟面试回答，只有在你确认后才会上传。</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>InterviewHelper 使用麦克风录制回答，以提供转写、语速和停顿训练建议。</string>
+</dict>
+</plist>
