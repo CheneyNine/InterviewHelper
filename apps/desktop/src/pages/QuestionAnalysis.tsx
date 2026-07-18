@@ -5,7 +5,6 @@ import { getAnswerAnalysis } from "../lib/api";
 import { useInterviewStore } from "../store/interviewStore";
 
 const dimensionLabels: Record<string, string> = {
-  relevance: "相关性",
   specificity: "具体程度",
   structure: "结构表达",
   impact: "结果影响",
@@ -13,11 +12,15 @@ const dimensionLabels: Record<string, string> = {
   content_and_fluency: "回答内容与流畅程度",
   tone_and_voice: "语气与声音表现",
   answer_structure: "回答结构与题目呈现",
+  relevance: "题目相关性",
+  technical_depth: "专业准确性与技术深度",
+  evidence_and_contribution: "证据与个人贡献",
+  role_fit: "岗位匹配度与业务理解",
 };
 
 function ScoreRing({ score }: { score: number | null }) {
   const value = score === null ? 0 : Math.round(score * 100);
-  return <div className="score-ring" style={{ "--score": `${value * 3.6}deg` } as React.CSSProperties}><strong>{score === null ? "—" : value}</strong><span>内容得分</span></div>;
+  return <div className="score-ring" style={{ "--score": `${value * 3.6}deg` } as React.CSSProperties}><strong>{score === null ? "—" : value}</strong><span>综合得分</span></div>;
 }
 
 export function QuestionAnalysisPage() {
@@ -60,7 +63,7 @@ export function QuestionAnalysisPage() {
       <div className="analysis-grid">
         <section className="analysis-section dimension-section">
           <h2>四维度表现</h2>
-          {(analysis.content.dimension_analysis?.length ? analysis.content.dimension_analysis : Object.entries(analysis.content.dimensions).map(([key, score]) => ({ key, title: dimensionLabels[key] ?? key, score, summary: "", evidence: [], suggestions: [], limitations: [] }))).map((item) => (
+          {(analysis.content.dimension_analysis?.length ? analysis.content.dimension_analysis : Object.entries(analysis.content.dimension_scores).map(([key, score]) => ({ key, title: dimensionLabels[key] ?? key, score, summary: "", evidence: [], suggestions: [], limitations: [] }))).map((item) => (
             <div key={item.key} className="dimension-card">
               <div className="dimension-row"><span>{dimensionLabels[item.key] ?? item.title}</span><div><i style={{ width: `${(item.score ?? 0) * 100}%` }} /></div><strong>{item.score === null ? "—" : Math.round((item.score ?? 0) * 100)}</strong></div>
               {item.summary && <p>{item.summary}</p>}

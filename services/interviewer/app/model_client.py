@@ -241,7 +241,7 @@ class OpenAICompatibleClient:
             return AnswerEvaluation.model_validate(parse_json_object(raw))
         except Exception as first_error:
             repair_note = (
-                "必须返回 overall_score、content_score、delivery_score、dimensions、strengths、"
+                "必须返回 overall_score、dimension_analysis、strengths、"
                 f"improvements、evidence、limitations、disclaimer；原始校验错误：{first_error}"
             )
             repaired_raw = await self._request(build_evaluation_messages(request, repair_note))

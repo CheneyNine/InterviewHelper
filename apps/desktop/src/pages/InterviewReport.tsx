@@ -39,8 +39,8 @@ export function InterviewReportPage() {
     );
   }
 
-  const score = activeReport.overall_content_score === null ? null : Math.round(activeReport.overall_content_score * 100);
-  const dimensionLabels: Record<string, string> = { visible_expression: "神情与镜头表现", content_and_fluency: "回答内容与流畅程度", tone_and_voice: "语气与声音表现", answer_structure: "回答结构与题目呈现" };
+  const score = activeReport.overall_score === null ? null : Math.round(activeReport.overall_score * 100);
+  const dimensionLabels: Record<string, string> = { visible_expression: "神情与镜头表现", content_and_fluency: "回答内容与流畅程度", tone_and_voice: "语气与声音表现", answer_structure: "回答结构与题目呈现", relevance: "题目相关性", technical_depth: "专业准确性与技术深度", evidence_and_contribution: "证据与个人贡献", role_fit: "岗位匹配度与业务理解" };
 
   return (
     <div className="report-page">

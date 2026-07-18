@@ -301,7 +301,7 @@ export async function getAnswerAnalysis(answerId: string): Promise<AnswerAnalysi
     },
     content: {
       overall_score: 0.78,
-      dimensions: { relevance: 0.86, specificity: 0.72, structure: 0.81, impact: 0.68 },
+      dimension_scores: { visible_expression: 0.78, content_and_fluency: 0.84, tone_and_voice: 0.72, answer_structure: 0.81, relevance: 0.86, technical_depth: 0.74, evidence_and_contribution: 0.72, role_fit: 0.68 },
       strengths: ["回答紧扣问题，个人行动表达清楚", "有明确的问题拆解与验证过程"],
       improvements: ["补充结果对应的业务指标", "开头先用一句话概括最终结论"],
       evidence: [{ claim: "行动路径清晰", quote: "我先把问题拆成影响范围、时间窗口和可回滚性三个部分" }],
@@ -328,7 +328,8 @@ export async function getInterviewReport(interviewId: string): Promise<Interview
   return {
     interview_id: interviewId,
     summary: "你的回答整体聚焦岗位要求，善于拆解问题并交代个人行动。下一步可把结果量化和开场结论练得更稳定，让面试官更快抓住价值。",
-    overall_content_score: 0.78,
+    overall_score: 0.78,
+    dimension_scores: { visible_expression: 0.78, content_and_fluency: 0.84, tone_and_voice: 0.72, answer_structure: 0.81, relevance: 0.86, technical_depth: 0.74, evidence_and_contribution: 0.72, role_fit: 0.68 },
     top_strengths: ["个人职责与行动边界清楚", "回答结构完整，能说明判断依据", "复盘意识和协作意识突出"],
     priority_improvements: ["用具体数字说明影响", "先结论后背景，压缩铺垫", "关键步骤之间增加短暂停顿"],
     answer_analyses: mockAnswers.map((answer) => ({

@@ -195,10 +195,7 @@ class AnswerEvaluation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     overall_score: float = Field(..., ge=0, le=1)
-    content_score: float = Field(..., ge=0, le=1)
-    delivery_score: float = Field(..., ge=0, le=1)
-    dimensions: list[EvaluationDimension] = Field(..., min_length=4, max_length=10)
-    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=4)
+    dimension_analysis: list[DetailedDimension] = Field(..., min_length=8, max_length=8)
     strengths: list[str] = Field(..., min_length=1, max_length=8)
     improvements: list[str] = Field(..., min_length=1, max_length=8)
     evidence: list[str] = Field(..., min_length=1, max_length=10)
@@ -214,13 +211,12 @@ class QuestionAnalysisSummary(BaseModel):
     answer_id: str = Field(..., min_length=1, max_length=100)
     question: str = Field(..., min_length=8, max_length=500)
     overall_score: float | None = Field(default=None, ge=0, le=1)
-    content_score: float | None = Field(default=None, ge=0, le=1)
-    delivery_score: float | None = Field(default=None, ge=0, le=1)
+    dimension_scores: dict[str, float | None] = Field(default_factory=dict)
     strengths: list[str] = Field(default_factory=list, max_length=8)
     improvements: list[str] = Field(default_factory=list, max_length=8)
     evidence: list[str] = Field(default_factory=list, max_length=10)
     limitations: list[str] = Field(default_factory=list, max_length=6)
-    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=4)
+    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=8)
 
 
 class InterviewReportGenerationRequest(BaseModel):
@@ -241,8 +237,7 @@ class InterviewReportDraft(BaseModel):
     summary: str = Field(..., min_length=8, max_length=1000)
     strengths: list[str] = Field(..., min_length=1, max_length=8)
     priority_improvements: list[str] = Field(..., min_length=1, max_length=8)
-    cross_question_patterns: list[str] = Field(default_factory=list, max_length=8)
     practice_plan: list[str] = Field(..., min_length=1, max_length=8)
-    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=4)
+    dimension_analysis: list[DetailedDimension] = Field(default_factory=list, max_length=8)
     limitations: list[str] = Field(default_factory=list, max_length=8)
     disclaimer: str = "这些结果是训练建议，不是心理、医学或招聘结论。"

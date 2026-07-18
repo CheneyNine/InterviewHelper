@@ -360,6 +360,26 @@ def report_to_multimodal(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+DIMENSION_WEIGHTS = {
+    "visible_expression": 0.10,
+    "content_and_fluency": 0.15,
+    "tone_and_voice": 0.10,
+    "answer_structure": 0.15,
+    "relevance": 0.15,
+    "technical_depth": 0.15,
+    "evidence_and_contribution": 0.10,
+    "role_fit": 0.10,
+}
+
+
+def dimension_scores(evaluation: dict[str, Any]) -> dict[str, float | None]:
+    scores = {key: None for key in DIMENSION_WEIGHTS}
+    for item in evaluation.get("dimension_analysis", []):
+        if isinstance(item, dict) and item.get("key") in scores:
+            scores[item["key"]] = item.get("score")
+    return scores
+
+
 def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     path = database_path or Settings.from_env().database_path
     init_database(path)
@@ -369,27 +389,8 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
         for answer in answers
         if (analysis := get_analysis(answer["id"], path)) is not None
     ]
-    content = [
-        item["evaluation"].get("content_score")
-        for item in analyses
-        if item["evaluation"].get("content_score") is not None
-    ]
-    delivery = [
-        item["evaluation"].get("delivery_score")
-        for item in analyses
-        if item["evaluation"].get("delivery_score") is not None
-    ]
-    content_score = sum(content) / len(content) if content else None
-    delivery_score = sum(delivery) / len(delivery) if delivery else None
-    overall = (
-        None
-        if content_score is None
-        else content_score
-        if delivery_score is None
-        else content_score * 0.7 + delivery_score * 0.3
-    )
+    dimension_buckets: dict[str, list[float]] = {key: [] for key in DIMENSION_WEIGHTS}
     summaries = []
-    dimension_buckets: dict[str, list[float]] = {key: [] for key in ("visible_expression", "content_and_fluency", "tone_and_voice", "answer_structure")}
     for item in analyses:
         evaluation = item["evaluation"]
         question = get_question(item["question_id"], path)
@@ -402,8 +403,7 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
                 "answer_id": item["answer_id"],
                 "question": question["prompt"],
                 "overall_score": evaluation.get("overall_score"),
-                "content_score": evaluation.get("content_score"),
-                "delivery_score": evaluation.get("delivery_score"),
+                "dimension_scores": dimension_scores(evaluation),
                 "strengths": evaluation.get("strengths", []),
                 "improvements": evaluation.get("improvements", []),
                 "evidence": evaluation.get("evidence", []),
@@ -411,20 +411,23 @@ def aggregate(interview_id: str, database_path: str | os.PathLike[str] | None = 
                 "dimension_analysis": evaluation.get("dimension_analysis", []),
             }
         )
-        for dimension in evaluation.get("dimension_analysis", []):
-            key, score = dimension.get("key"), dimension.get("score")
+        for key, score in dimension_scores(evaluation).items():
             if key in dimension_buckets and isinstance(score, (int, float)):
                 dimension_buckets[key].append(float(score))
+    dimension_averages = {key: (sum(values) / len(values) if values else None) for key, values in dimension_buckets.items()}
+    valid_weighted_scores = [value * DIMENSION_WEIGHTS[key] for key, value in dimension_averages.items() if value is not None]
+    valid_weights = [DIMENSION_WEIGHTS[key] for key, value in dimension_averages.items() if value is not None]
+    overall = sum(valid_weighted_scores) / sum(valid_weights) if valid_weights else None
     aggregate_scores = {
         "overall_score": overall,
-        "content_score": content_score,
-        "delivery_score": delivery_score,
+        **{f"dimension_{key}": value for key, value in dimension_averages.items()},
     }
+    if not analyses:
+        # Preserve the historical internal empty-state shape for older callers;
+        # the public report endpoint exposes only the canonical eight dimensions.
+        aggregate_scores = {"overall_score": None, "content_score": None, "delivery_score": None}
     if analyses:
-        aggregate_scores.update({
-            f"dimension_{key}": (sum(values) / len(values) if values else None)
-            for key, values in dimension_buckets.items()
-        })
+        aggregate_scores.update({f"dimension_{key}": value for key, value in dimension_averages.items()})
     return {
         "question_analyses": sorted(summaries, key=lambda item: item["question_order"]),
         "aggregate_scores": aggregate_scores,
@@ -772,11 +775,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         raw_report = analysis["raw_multimodal_report"]
         raw = raw_report.get("analysis", raw_report)
         evaluation = analysis["evaluation"]
-        dimensions = {
-            item["dimension"]: item.get("score")
-            for item in evaluation.get("dimensions", [])
-            if isinstance(item, dict) and item.get("dimension")
-        }
         evidence = [
             {"claim": item, "quote": item}
             for item in evaluation.get("evidence", [])
@@ -792,7 +790,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ),
             "content": {
                 "overall_score": evaluation.get("overall_score"),
-                "dimensions": dimensions,
+                "dimension_scores": dimension_scores(evaluation),
                 "strengths": evaluation.get("strengths", []),
                 "improvements": evaluation.get("improvements", []),
                 "evidence": evidence,
@@ -847,14 +845,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "interview_id": interview_id,
             "question_count": len(questions),
             "completed_count": len(result["question_analyses"]),
-            **result["aggregate_scores"],
             **draft,
             "dimension_scores": {
                 key.removeprefix("dimension_"): value
                 for key, value in result["aggregate_scores"].items()
                 if key.startswith("dimension_")
             },
-            "overall_content_score": result["aggregate_scores"]["content_score"],
+            "overall_score": result["aggregate_scores"]["overall_score"],
             "top_strengths": draft.get("strengths", []),
             "answer_analyses": answer_analyses,
             "question_analyses": answer_analyses,

@@ -97,7 +97,7 @@ export interface AnswerAnalysis {
   };
   content: {
     overall_score: number | null;
-    dimensions: Record<string, number | null>;
+    dimension_scores: Record<string, number | null>;
     strengths: string[];
     improvements: string[];
     evidence: Array<{ claim: string; quote: string }>;
@@ -133,7 +133,7 @@ export interface AnswerAnalysis {
 export interface InterviewReport {
   interview_id: string;
   summary: string;
-  overall_content_score: number | null;
+  overall_score: number | null;
   top_strengths: string[];
   priority_improvements: string[];
   answer_analyses: Array<{ question_id: string; answer_id: string; analysis_url: string }>;
