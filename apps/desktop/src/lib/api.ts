@@ -35,15 +35,28 @@ function friendlyError(status: number, code: string, fallback: string) {
     UNSUPPORTED_MEDIA_TYPE: "当前录制格式不受支持，请更换设备或浏览器后重录。",
     MEDIA_UNREADABLE: "录制文件无法读取，请重新录制。",
     DEPENDENCY_UNAVAILABLE: "分析服务暂时不可用，本地录制仍保留，可稍后重试。",
+    NETWORK_ERROR: "无法连接 Core API，请检查 Public API 地址和服务是否已启动。",
+    METHOD_NOT_ALLOWED: "当前地址不是 InterviewHelper Core API，请检查 VITE_API_BASE_URL。",
+    ROUTE_NOT_FOUND: "Core API 未提供该接口，请确认服务版本和 Public API 路径。",
   };
   return messages[code] ?? fallback ?? `请求失败 (${status})`;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, init);
+  } catch (cause) {
+    throw new ApiError(
+      friendlyError(0, "NETWORK_ERROR", cause instanceof Error ? cause.message : "Network request failed"),
+      0,
+      "NETWORK_ERROR",
+    );
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorShape;
-    const code = body.error?.code ?? "UNKNOWN_ERROR";
+    const code = body.error?.code
+      ?? (response.status === 404 ? "ROUTE_NOT_FOUND" : response.status === 405 ? "METHOD_NOT_ALLOWED" : "UNKNOWN_ERROR");
     throw new ApiError(friendlyError(response.status, code, body.error?.message ?? response.statusText), response.status, code);
   }
   if (response.status === 204) return undefined as T;
