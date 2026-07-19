@@ -71,7 +71,14 @@ export function AnswerRecorder({ question }: AnswerRecorderProps) {
     <section className="recorder-shell" aria-label="回答录制">
       <div className="camera-stage">
         {recorder.recordingUrl ? (
-          <video className="camera-feed" src={recorder.recordingUrl} controls playsInline />
+          <video
+            key={recorder.recordingUrl}
+            className="camera-feed"
+            src={recorder.recordingUrl}
+            controls
+            preload="metadata"
+            playsInline
+          />
         ) : (
           <video className="camera-feed mirrored" ref={recorder.attachPreview} autoPlay muted playsInline />
         )}

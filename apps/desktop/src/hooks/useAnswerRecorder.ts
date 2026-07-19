@@ -21,6 +21,7 @@ export function useAnswerRecorder() {
   const startedAtRef = useRef(0);
   const timerRef = useRef<number | null>(null);
   const previewRef = useRef<HTMLVideoElement | null>(null);
+  const recordingUrlRef = useRef<string | null>(null);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -35,6 +36,13 @@ export function useAnswerRecorder() {
   const attachPreview = useCallback((node: HTMLVideoElement | null) => {
     previewRef.current = node;
     if (node && streamRef.current) node.srcObject = streamRef.current;
+  }, []);
+
+  const replaceRecordingUrl = useCallback((blob: Blob | null) => {
+    if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
+    const nextUrl = blob ? URL.createObjectURL(blob) : null;
+    recordingUrlRef.current = nextUrl;
+    setRecordingUrl(nextUrl);
   }, []);
 
   const requestPermission = useCallback(async () => {
@@ -71,9 +79,8 @@ export function useAnswerRecorder() {
       const granted = await requestPermission();
       if (!granted || !streamRef.current) return;
     }
-    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecording(null);
-    setRecordingUrl(null);
+    replaceRecordingUrl(null);
     setElapsedMs(0);
     chunksRef.current = [];
 
@@ -86,7 +93,7 @@ export function useAnswerRecorder() {
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "video/webm" });
       setRecording(blob);
-      setRecordingUrl(URL.createObjectURL(blob));
+      replaceRecordingUrl(blob);
       setElapsedMs(Date.now() - startedAtRef.current);
       setStatus("recorded");
     };
@@ -98,30 +105,28 @@ export function useAnswerRecorder() {
       setElapsedMs(next);
       if (next >= MAX_DURATION_MS) stopRecording();
     }, 250);
-  }, [recordingUrl, requestPermission, stopRecording]);
+  }, [replaceRecordingUrl, requestPermission, stopRecording]);
 
   const restoreRecording = useCallback((blob: Blob, durationMs: number) => {
-    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecording(blob);
-    setRecordingUrl(URL.createObjectURL(blob));
+    replaceRecordingUrl(blob);
     setElapsedMs(durationMs);
     setError(null);
     setStatus("recorded");
-  }, [recordingUrl]);
+  }, [replaceRecordingUrl]);
 
   const retake = useCallback(() => {
-    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecording(null);
-    setRecordingUrl(null);
+    replaceRecordingUrl(null);
     setElapsedMs(0);
     setStatus(streamRef.current ? "ready" : "idle");
-  }, [recordingUrl]);
+  }, [replaceRecordingUrl]);
 
   useEffect(() => () => {
     stopTimer();
     stopTracks();
-    if (recordingUrl) URL.revokeObjectURL(recordingUrl);
-  }, [recordingUrl, stopTimer, stopTracks]);
+    if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current);
+  }, [stopTimer, stopTracks]);
 
   return {
     status,
