@@ -248,7 +248,11 @@ class OpenAICompatibleClient:
             try:
                 return AnswerEvaluation.model_validate(parse_json_object(repaired_raw))
             except Exception as exc:
-                raise ModelClientError("MODEL_BAD_RESPONSE", "Evaluation output failed schema validation after one repair attempt") from exc
+                detail = str(exc).replace("\n", " ")[:1200]
+                raise ModelClientError(
+                    "MODEL_BAD_RESPONSE",
+                    f"Evaluation repair failed schema validation: {detail}",
+                ) from exc
 
     async def generate_report(self, request: InterviewReportGenerationRequest) -> InterviewReportDraft:
         raw = await self._request(build_report_messages(request))

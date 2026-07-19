@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -179,6 +180,7 @@ def test_generated_report_is_read_from_database_after_first_request(tmp_path, mo
     async def fake_interviewer_post(*_args, **_kwargs):
         nonlocal calls
         calls += 1
+        await asyncio.sleep(0.05)
         return {
             "summary": "整场报告",
             "strengths": ["结构清楚"],
@@ -201,8 +203,10 @@ def test_generated_report_is_read_from_database_after_first_request(tmp_path, mo
     )
     application = create_app(settings)
     with TestClient(application) as client:
-        first = client.get(f"/api/v1/interviews/{interview['id']}/report")
-        second = client.get(f"/api/v1/interviews/{interview['id']}/report")
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first, second = executor.map(
+                lambda _: client.get(f"/api/v1/interviews/{interview['id']}/report"), range(2)
+            )
 
     assert first.status_code == 200
     assert second.json() == first.json()

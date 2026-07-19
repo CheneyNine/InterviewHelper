@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Check, Flag, Plus, Trophy } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, Flag, Plus, Trophy } from "lucide-react";
 import { useEffect } from "react";
+import { RadarChart } from "../components/RadarChart";
 import { ApiError, getInterviewReport } from "../lib/api";
 import { useInterviewStore } from "../store/interviewStore";
 
@@ -20,7 +21,7 @@ export function InterviewReportPage() {
     retry: false,
     refetchInterval: (query) => {
       const error = query.state.error;
-      if (error instanceof ApiError && error.code === "INTERVIEW_NOT_FOUND") return false;
+      if (error instanceof ApiError && error.code !== "REPORT_NOT_READY") return false;
       return report ? false : 2000;
     },
     refetchIntervalInBackground: false,
@@ -33,16 +34,20 @@ export function InterviewReportPage() {
 
   const activeReport = report || reportQuery.data;
   if (!activeReport) {
-    const missingInterview = reportQuery.error instanceof ApiError
-      && reportQuery.error.code === "INTERVIEW_NOT_FOUND";
+    const terminalError = reportQuery.error instanceof ApiError
+      && reportQuery.error.code !== "REPORT_NOT_READY"
+      ? reportQuery.error
+      : null;
+    const missingInterview = terminalError?.code === "INTERVIEW_NOT_FOUND";
     return (
       <div className="center-page report-waiting">
-        {!missingInterview && <span className="spinner" />}
-        <h1>{missingInterview ? "这个项目已失效" : "回答已全部提交"}</h1>
+        {!terminalError && <span className="spinner" />}
+        <h1>{missingInterview ? "这个项目已失效" : terminalError ? "回答分析失败" : "回答已全部提交"}</h1>
+        {terminalError && !missingInterview && <AlertTriangle size={30} />}
         <p>{missingInterview
           ? "当前后端数据库中找不到这个项目，可能是后端重启或数据库被重新初始化。"
-          : "总结页会在后端报告准备好后自动出现，你也可以先切换到侧栏中的其他项目。"}</p>
-        {missingInterview
+          : terminalError?.message ?? "总结页会在后端报告准备好后自动出现，你也可以先切换到侧栏中的其他项目。"}</p>
+        {terminalError
           ? <button className="button button-primary" onClick={newProject}><Plus size={16} />返回并新建面试</button>
           : reportQuery.isError && <span className="muted">报告仍在生成，页面会自动重新获取。</span>}
       </div>
@@ -50,7 +55,6 @@ export function InterviewReportPage() {
   }
 
   const score = activeReport.overall_score === null ? null : Math.round(activeReport.overall_score * 100);
-  const dimensionLabels: Record<string, string> = { visible_expression: "神情与镜头表现", content_and_fluency: "回答内容与流畅程度", tone_and_voice: "语气与声音表现", answer_structure: "回答结构与题目呈现", relevance: "题目相关性", technical_depth: "专业准确性与技术深度", evidence_and_contribution: "证据与个人贡献", role_fit: "岗位匹配度与业务理解" };
 
   return (
     <div className="report-page">
@@ -64,7 +68,11 @@ export function InterviewReportPage() {
         <div className="report-list priorities"><h2><Flag size={19} />优先训练</h2>{activeReport.priority_improvements.map((item, index) => <p key={item}><span>{index + 1}</span>{item}</p>)}</div>
       </section>
 
-      {activeReport.dimension_scores && <section className="report-band report-dimensions"><div className="report-list"><h2>八维度总览</h2>{Object.entries(dimensionLabels).map(([key, label]) => { const value = activeReport.dimension_scores?.[key]; return <p key={key}><span>{label}</span><strong>{value == null ? "—" : `${Math.round(value * 100)}分`}</strong></p>; })}</div></section>}
+      {activeReport.dimension_scores && (
+        <section className="report-band report-dimensions">
+          <RadarChart scores={activeReport.dimension_scores} />
+        </section>
+      )}
 
       <section className="answer-review">
         <div className="section-title"><div><span>逐题回顾</span><h2>点击题目查看对应分析</h2></div><strong>{activeReport.answer_analyses.length}/{questions.length} 已分析</strong></div>
